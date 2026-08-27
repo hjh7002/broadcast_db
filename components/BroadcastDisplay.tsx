@@ -210,6 +210,7 @@ function TeamColumn({
   gameState,
   teamContext,
   standings,
+  opponentCode,
 }: {
   broadcastId: string;
   side: "home" | "away";
@@ -221,6 +222,7 @@ function TeamColumn({
   gameState: LineupInfo["gameState"] | undefined;
   teamContext: TeamContext;
   standings?: StandingsEntry[];
+  opponentCode?: string | null;
 }) {
   const firstTeam = roster.filter((p) => (p.bio as Record<string, unknown>).roster_level !== "2군");
   const isBaseball = BASEBALL_SPORT_CODES.has(sport.code);
@@ -299,6 +301,7 @@ function TeamColumn({
               sportCode={sport.code}
               players={firstTeam}
               finalRosterIds={(team.extra as Record<string, unknown>).final_roster_ids as string[] | undefined}
+              opponentCode={opponentCode ?? null}
             />
           )}
         </div>
@@ -340,7 +343,10 @@ export default function BroadcastDisplay({
     ((homeTeam.extra as Record<string, unknown>).group_standings as StandingsEntry[] | undefined) ??
     ((awayTeam.extra as Record<string, unknown>).group_standings as StandingsEntry[] | undefined);
 
+  // Breaks out of the site-wide max-w-7xl content column so the roster tables
+  // (11+ stat columns per side) get noticeably more breathing room than other pages.
   return (
+    <div className="relative left-1/2 w-screen max-w-[96rem] -translate-x-1/2">
     <div className="relative rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
       <EndBroadcastButton broadcastId={broadcastId} />
       <p className="mb-4 text-center text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
@@ -359,6 +365,7 @@ export default function BroadcastDisplay({
           gameState={lineupInfo?.gameState}
           teamContext={awayTeamContext ?? null}
           standings={standings}
+          opponentCode={teamCode(homeTeam)}
         />
         <div className="pt-6 text-xl font-bold text-neutral-300 dark:text-neutral-600">VS</div>
         <TeamColumn
@@ -372,6 +379,7 @@ export default function BroadcastDisplay({
           gameState={lineupInfo?.gameState}
           teamContext={homeTeamContext ?? null}
           standings={standings}
+          opponentCode={teamCode(awayTeam)}
         />
       </div>
 
@@ -384,6 +392,7 @@ export default function BroadcastDisplay({
       {venue && (
         <p className="mt-6 text-center text-xs text-neutral-500 dark:text-neutral-400">경기 장소: {venue}</p>
       )}
+    </div>
     </div>
   );
 }

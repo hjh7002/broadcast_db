@@ -24,10 +24,14 @@ function statCell(stats: Record<string, unknown>, key: string, suffix?: string):
 }
 
 // Names are "한글 English" for non-Korea rosters — on one line the two scripts
-// crowd together, so split at the first Latin character and put English on its own line.
+// crowd together, so put English on its own line. Split at the LAST Hangul-then-Latin
+// boundary rather than the first Latin character — some Hangul renderings themselves
+// start with Latin initials (e.g. "DJ 펀더버크 DJ Funderburk"), which would otherwise
+// fool a first-match search into thinking the name has no Hangul portion at all.
 function splitName(name: string): { ko: string; en: string | null } {
-  const idx = name.search(/[A-Za-z]/);
-  if (idx <= 0) return { ko: name, en: null };
+  const matches = [...name.matchAll(/[가-힣](?=\s+[A-Za-z])/g)];
+  if (matches.length === 0) return { ko: name, en: null };
+  const idx = matches[matches.length - 1].index! + 1;
   return { ko: name.slice(0, idx).trim(), en: name.slice(idx).trim() };
 }
 
@@ -35,10 +39,12 @@ export default function BasketballBroadcastRoster({
   sportCode,
   players,
   finalRosterIds,
+  opponentCode,
 }: {
   sportCode: string;
   players: Player[];
   finalRosterIds?: string[];
+  opponentCode?: string | null;
 }) {
   const [selected, setSelected] = useState<Player | null>(null);
   const activePlayers =
@@ -51,10 +57,11 @@ export default function BasketballBroadcastRoster({
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[520px] text-left text-xs">
+        <table className="w-full min-w-[600px] text-left text-xs">
           <thead className="bg-neutral-50 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
             <tr>
               <th className="px-2 py-1.5 font-medium">선수</th>
+              <th className="px-1.5 py-1.5 font-medium">신장</th>
               {COLUMNS.map((c) => (
                 <th key={c.key} className="px-1.5 py-1.5 font-medium">
                   {c.label}
@@ -65,6 +72,8 @@ export default function BasketballBroadcastRoster({
           <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
             {sorted.map((p) => {
               const stats = (p.stats as Record<string, unknown>) ?? {};
+              const bio = (p.bio as Record<string, unknown>) ?? {};
+              const heightCm = bio.height_cm;
               const { ko, en } = splitName(p.name);
               return (
                 <tr key={p.id}>
@@ -86,6 +95,9 @@ export default function BasketballBroadcastRoster({
                       )}
                     </button>
                   </td>
+                  <td className="px-1.5 py-1.5 whitespace-nowrap text-neutral-700 dark:text-neutral-300">
+                    {typeof heightCm === "number" ? `${heightCm}cm` : "-"}
+                  </td>
                   {COLUMNS.map((c) => (
                     <td key={c.key} className="px-1.5 py-1.5 whitespace-nowrap text-neutral-700 dark:text-neutral-300">
                       {statCell(stats, c.key, c.suffix)}
@@ -99,7 +111,12 @@ export default function BasketballBroadcastRoster({
       </div>
 
       {selected && (
-        <PlayerFloatingCard player={selected} sportCode={sportCode} onClose={() => setSelected(null)} />
+        <PlayerFloatingCard
+          player={selected}
+          sportCode={sportCode}
+          opponentCode={opponentCode ?? null}
+          onClose={() => setSelected(null)}
+        />
       )}
     </>
   );

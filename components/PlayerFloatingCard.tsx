@@ -22,6 +22,7 @@ function fmt(v: unknown, suffix?: string): string {
 type GameLogRow = {
   opp: string;
   date: string;
+  rd?: string;
   MIN: number | null;
   PTS: number;
   REB: number;
@@ -34,6 +35,42 @@ type GameLogRow = {
   P3A: number;
 };
 
+function GameRow({ g }: { g: GameLogRow }) {
+  return (
+    <tr>
+      <td className="px-2 py-1.5 whitespace-nowrap">
+        vs {g.opp} <span className="text-neutral-400 dark:text-neutral-500">{g.date}</span>
+      </td>
+      <td className="px-2 py-1.5">{n0(g.MIN)}</td>
+      <td className="px-2 py-1.5 font-medium">{n0(g.PTS)}</td>
+      <td className="px-2 py-1.5">{n0(g.REB)}</td>
+      <td className="px-2 py-1.5">{n0(g.AST)}</td>
+      <td className="px-2 py-1.5">{n0(g.STL)}</td>
+      <td className="px-2 py-1.5">{n0(g.BLK)}</td>
+      <td className="px-2 py-1.5 whitespace-nowrap">{g.FGA ? `${g.FGM}/${g.FGA}` : "-"}</td>
+      <td className="px-2 py-1.5 whitespace-nowrap">{g.P3A ? `${g.P3M}/${g.P3A}` : "-"}</td>
+    </tr>
+  );
+}
+
+function GameTableHead() {
+  return (
+    <thead className="bg-neutral-50 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
+      <tr>
+        <th className="px-2 py-1.5 font-medium">경기</th>
+        <th className="px-2 py-1.5 font-medium">MIN</th>
+        <th className="px-2 py-1.5 font-medium">PTS</th>
+        <th className="px-2 py-1.5 font-medium">REB</th>
+        <th className="px-2 py-1.5 font-medium">AST</th>
+        <th className="px-2 py-1.5 font-medium">STL</th>
+        <th className="px-2 py-1.5 font-medium">BLK</th>
+        <th className="px-2 py-1.5 font-medium">FG</th>
+        <th className="px-2 py-1.5 font-medium">3P</th>
+      </tr>
+    </thead>
+  );
+}
+
 function n0(v: number | null | undefined): string {
   return typeof v === "number" ? String(v) : "-";
 }
@@ -41,10 +78,12 @@ function n0(v: number | null | undefined): string {
 export default function PlayerFloatingCard({
   player,
   sportCode,
+  opponentCode,
   onClose,
 }: {
   player: Player;
   sportCode: string;
+  opponentCode?: string | null;
   onClose: () => void;
 }) {
   const bio = (player.bio as Record<string, unknown>) ?? {};
@@ -53,6 +92,10 @@ export default function PlayerFloatingCard({
   const fg3m = typeof stats.FG3M === "number" ? stats.FG3M.toFixed(1) : null;
   const gameLog = (stats.GAME_LOG as GameLogRow[] | undefined) ?? [];
   const recentGames = gameLog.slice(-3).reverse();
+  // Surfaced separately from "최근 경기" because it's about today's specific
+  // matchup, not recent form — a head-to-head from over a year ago is still
+  // relevant here even though recency-based sorting would bury it.
+  const h2hGame = opponentCode ? [...gameLog].reverse().find((g) => g.opp === opponentCode) : undefined;
 
   return (
     <div
@@ -103,43 +146,31 @@ export default function PlayerFloatingCard({
           ))}
         </div>
 
+        {h2hGame && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+              직전 맞대결{h2hGame.rd ? ` (${h2hGame.rd})` : ""}
+            </p>
+            <div className="overflow-x-auto rounded-md border border-amber-200 dark:border-amber-900">
+              <table className="w-full min-w-[480px] text-left text-xs">
+                <GameTableHead />
+                <tbody className="divide-y divide-neutral-100 text-neutral-800 dark:divide-neutral-800 dark:text-neutral-200">
+                  <GameRow g={h2hGame} />
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {recentGames.length > 0 && (
           <div className="mt-4">
             <p className="mb-1.5 text-[11px] font-medium text-neutral-500 dark:text-neutral-400">최근 경기</p>
             <div className="overflow-x-auto rounded-md border border-neutral-200 dark:border-neutral-800">
               <table className="w-full min-w-[480px] text-left text-xs">
-                <thead className="bg-neutral-50 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400">
-                  <tr>
-                    <th className="px-2 py-1.5 font-medium">경기</th>
-                    <th className="px-2 py-1.5 font-medium">MIN</th>
-                    <th className="px-2 py-1.5 font-medium">PTS</th>
-                    <th className="px-2 py-1.5 font-medium">REB</th>
-                    <th className="px-2 py-1.5 font-medium">AST</th>
-                    <th className="px-2 py-1.5 font-medium">STL</th>
-                    <th className="px-2 py-1.5 font-medium">BLK</th>
-                    <th className="px-2 py-1.5 font-medium">FG</th>
-                    <th className="px-2 py-1.5 font-medium">3P</th>
-                  </tr>
-                </thead>
+                <GameTableHead />
                 <tbody className="divide-y divide-neutral-100 text-neutral-800 dark:divide-neutral-800 dark:text-neutral-200">
                   {recentGames.map((g, i) => (
-                    <tr key={i}>
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        vs {g.opp} <span className="text-neutral-400 dark:text-neutral-500">{g.date}</span>
-                      </td>
-                      <td className="px-2 py-1.5">{n0(g.MIN)}</td>
-                      <td className="px-2 py-1.5 font-medium">{n0(g.PTS)}</td>
-                      <td className="px-2 py-1.5">{n0(g.REB)}</td>
-                      <td className="px-2 py-1.5">{n0(g.AST)}</td>
-                      <td className="px-2 py-1.5">{n0(g.STL)}</td>
-                      <td className="px-2 py-1.5">{n0(g.BLK)}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        {g.FGA ? `${g.FGM}/${g.FGA}` : "-"}
-                      </td>
-                      <td className="px-2 py-1.5 whitespace-nowrap">
-                        {g.P3A ? `${g.P3M}/${g.P3A}` : "-"}
-                      </td>
-                    </tr>
+                    <GameRow key={i} g={g} />
                   ))}
                 </tbody>
               </table>
