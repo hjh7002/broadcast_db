@@ -4,7 +4,7 @@ import { getSportByCode, ensureTeam, getTeam, getRoster } from "@/lib/data";
 import { getTomorrowMlbGames } from "@/lib/todaySchedule";
 import { mlbTeamIdForName, shortNameForMlbTeamId } from "@/lib/mlbTeams";
 import { getStandingsLine, getSeriesHistory } from "@/lib/teamContext";
-import { getTop10Badges } from "@/lib/leaders";
+import { getTop10Badges, type LeaderBadge } from "@/lib/leaders";
 import type { PreviewRosterOption } from "@/components/LiveMatchupPanel";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ export default async function TomorrowBroadcastPage({
           getSeriesHistory(homeMlbId),
           getTop10Badges(),
         ])
-      : [null, null, null, null, new Map<number, string[]>()];
+      : [null, null, null, null, new Map<number, LeaderBadge[]>()];
 
   function toOptions(roster: typeof homeRoster, side: "home" | "away"): PreviewRosterOption[] {
     return roster

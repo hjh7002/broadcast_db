@@ -5,7 +5,7 @@ import { getSports, getAllTeams, getLatestBroadcast, getEndedBroadcasts, getRost
 import { mlbTeamIdForName } from "@/lib/mlbTeams";
 import { getLineupInfo } from "@/lib/liveLineup";
 import { getStandingsLine, getSeriesHistory } from "@/lib/teamContext";
-import { getTop10Badges } from "@/lib/leaders";
+import { getTop10Badges, type LeaderBadge } from "@/lib/leaders";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,7 @@ export default async function BroadcastPage() {
         getSeriesHistory(homeMlbId!),
         getTop10Badges(),
       ])
-    : [null, null, null, null, null, new Map<number, string[]>()];
+    : [null, null, null, null, null, new Map<number, LeaderBadge[]>()];
 
   return (
     <div>

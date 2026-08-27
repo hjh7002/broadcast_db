@@ -3,6 +3,7 @@ import type { Sport, Team, Player } from "@/lib/supabase/types";
 import EndBroadcastButton from "@/components/EndBroadcastButton";
 import TeamNoteEditor from "@/components/TeamNoteEditor";
 import LiveMatchupPanel, { type PreviewRosterOption } from "@/components/LiveMatchupPanel";
+import type { LeaderBadge } from "@/lib/leaders";
 import BasketballBroadcastRoster from "@/components/BasketballBroadcastRoster";
 
 // MLB/KBO get the pitcher/batter lineup treatment below; every other sport
@@ -75,7 +76,7 @@ function RosterList({
   players: Player[];
   battingOrderOf?: (player: Player) => number | null;
   showStreak?: boolean;
-  leaderBadges?: Map<number, string[]>;
+  leaderBadges?: Map<number, LeaderBadge[]>;
 }) {
   if (players.length === 0) return null;
   return (
@@ -95,9 +96,14 @@ function RosterList({
                 {order != null && <span className="mr-1.5 text-xs text-neutral-400 dark:text-neutral-500">{order}번</span>}
                 {p.name}
                 {streak && <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">{streak}</span>}
-                {ranks && ranks.length > 0 && (
-                  <span className="ml-1.5 text-xs text-blue-600 dark:text-blue-400">{ranks.join(", ")}</span>
-                )}
+                {ranks?.map((r, i) => (
+                  <span
+                    key={i}
+                    className={`ml-1.5 text-xs ${r.bad ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"}`}
+                  >
+                    {r.text}
+                  </span>
+                ))}
               </span>
               <span className="text-xs text-neutral-500 dark:text-neutral-400">
                 {p.position ?? ""} {p.jersey_number != null ? `#${p.jersey_number}` : ""}
@@ -231,7 +237,7 @@ function TeamColumn({
   teamContext: TeamContext;
   standings?: StandingsEntry[];
   opponentCode?: string | null;
-  leaderBadges?: Map<number, string[]>;
+  leaderBadges?: Map<number, LeaderBadge[]>;
 }) {
   const firstTeam = roster.filter((p) => (p.bio as Record<string, unknown>).roster_level !== "2군");
   const isBaseball = BASEBALL_SPORT_CODES.has(sport.code);
@@ -355,7 +361,7 @@ export default function BroadcastDisplay({
   headerLabel?: string;
   previewMatchup?: { previewRoster: PreviewRosterOption[]; defaultPitcher: { id: number; name: string; side: "home" | "away" } | null } | null;
   // MLB personId -> ["홈런 3위", ...] — 리그 top10에 든 주요 지표만 이름 옆에 배지로 표시
-  leaderBadges?: Map<number, string[]>;
+  leaderBadges?: Map<number, LeaderBadge[]>;
 }) {
   const awayMlbId = mlbTeamIdForName(awayTeam.name);
   const homeMlbId = mlbTeamIdForName(homeTeam.name);
