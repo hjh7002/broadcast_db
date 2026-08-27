@@ -157,7 +157,15 @@ function outsToIp(outs: number): string {
 // bug: for a typical evening ET game, UTC has already rolled over to the next calendar
 // day well before the game ends, so "today" no longer matched the game's actual date
 // and every "exclude today's in-progress game" filter below silently stopped excluding it.
+// Every "freeze to before today's game" filter below excludes whatever date this
+// returns. While the game is still live that's correct (a live in-progress line
+// shouldn't move stats around), but once it's Final that game's real result should
+// start counting — so this switches to a date nothing can match, letting today's
+// now-finished game flow back into every stat/streak computation immediately.
 function todayStr(feed: any): string {
+  const status = feed?.gameData?.status;
+  const isFinal = status?.abstractGameState === "Final" || status?.detailedState === "Final" || status?.detailedState === "Game Over";
+  if (isFinal) return "";
   return feed?.gameData?.datetime?.officialDate || new Date().toISOString().slice(0, 10);
 }
 

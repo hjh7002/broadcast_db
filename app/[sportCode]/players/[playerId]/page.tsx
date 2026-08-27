@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getSportByCode, getPlayer, getStatFields, getPlayerContent, getTeam } from "@/lib/data";
-import type { PlayerContent } from "@/lib/supabase/types";
+import { getSportByCode, getPlayer, getStatFields, getTeam } from "@/lib/data";
 import PlayerEditForm from "@/components/PlayerEditForm";
-import PlayerContentSection from "@/components/PlayerContentSection";
 import PlayerTabs from "@/components/PlayerTabs";
 import PlayerHeader from "@/components/PlayerHeader";
 import PlayerStatSummary from "@/components/PlayerStatSummary";
@@ -27,26 +25,6 @@ import PlayerMemoEditor from "@/components/PlayerMemoEditor";
 
 export const dynamic = "force-dynamic";
 
-const CATEGORY_LABELS: Record<string, string> = {
-  episode: "에피소드",
-  background: "선수 정보",
-  stat_record: "기록의 의미",
-};
-
-// Order here controls section order on the page — change this array to
-// rearrange or add a new category, no schema change needed.
-const CATEGORY_ORDER = ["episode", "background", "stat_record"];
-
-function groupByCategory(content: PlayerContent[]) {
-  const groups = new Map<string, PlayerContent[]>();
-  for (const item of content) {
-    const list = groups.get(item.category) ?? [];
-    list.push(item);
-    groups.set(item.category, list);
-  }
-  return groups;
-}
-
 export default async function PlayerPage({
   params,
 }: {
@@ -58,9 +36,8 @@ export default async function PlayerPage({
   const player = await getPlayer(playerId);
   if (!player || player.sport_id !== sport.id) notFound();
 
-  const [statFields, content, team] = await Promise.all([
+  const [statFields, team] = await Promise.all([
     getStatFields(sport.id),
-    getPlayerContent(playerId),
     player.team_id ? getTeam(player.team_id) : Promise.resolve(null),
   ]);
 
@@ -72,12 +49,7 @@ export default async function PlayerPage({
   // since sport_stat_fields already defines what to show without any baseball assumptions.
   const isBaseball = sport.code === "mlb" || sport.code === "kbo";
   const teamSplits = stats.teamSplits as ({ team: string } & Record<string, unknown>)[] | undefined;
-
-  const grouped = groupByCategory(content);
-  const orderedCategories = [
-    ...CATEGORY_ORDER,
-    ...[...grouped.keys()].filter((c) => !CATEGORY_ORDER.includes(c)),
-  ];
+  const memoEditor = <PlayerMemoEditor playerId={player.id} initialMemo={(bio.memo as string | null) ?? ""} />;
 
   let statTab: React.ReactNode;
   let gameTab: React.ReactNode;
@@ -112,6 +84,7 @@ export default async function PlayerPage({
         <div className="mt-6">
           <PlayerTeamSplits statFields={statFields} splits={teamSplits} />
         </div>
+        {memoEditor}
         <div className="mt-8">
           <PlayerRecentGames games={recentGames} />
         </div>
@@ -172,6 +145,7 @@ export default async function PlayerPage({
             )}
           </div>
         ) : null}
+        {memoEditor}
         <div className="mt-8">
           <PlayerHittingRecentGames games={recentGames} />
         </div>
@@ -187,23 +161,7 @@ export default async function PlayerPage({
   }
   }
 
-  const noteSections = (
-    <>
-      {orderedCategories.map((category) => (
-        <section key={category} className="mt-8">
-          <h2 className="mb-3 text-lg font-medium">{CATEGORY_LABELS[category] ?? category}</h2>
-          <PlayerContentSection playerId={player.id} category={category} items={grouped.get(category) ?? []} />
-        </section>
-      ))}
-    </>
-  );
-
-  const profileTab = (
-    <div>
-      <PlayerProfileList bio={bio} />
-      {noteSections}
-    </div>
-  );
+  const profileTab = <PlayerProfileList bio={bio} />;
 
   const header = (
     <>
