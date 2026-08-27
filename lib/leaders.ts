@@ -30,7 +30,7 @@ async function fetchLeaders(categories: { key: string; label: string }[], statGr
       for (const l of group.leaders || []) {
         if (l.rank > 10 || !l.person?.id) continue;
         const list = map.get(l.person.id) ?? [];
-        list.push(`${label} ${l.rank}위`);
+        list.push(`${label} ${l.rank}위(${l.value})`);
         map.set(l.person.id, list);
       }
     }
