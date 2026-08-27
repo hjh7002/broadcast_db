@@ -5,6 +5,7 @@ import { getSports, getAllTeams, getLatestBroadcast, getEndedBroadcasts, getRost
 import { mlbTeamIdForName } from "@/lib/mlbTeams";
 import { getLineupInfo } from "@/lib/liveLineup";
 import { getStandingsLine, getSeriesHistory } from "@/lib/teamContext";
+import { getTop10Badges } from "@/lib/leaders";
 
 export const dynamic = "force-dynamic";
 
@@ -27,15 +28,16 @@ export default async function BroadcastPage() {
   const awayMlbId = awayTeam ? mlbTeamIdForName(awayTeam.name) : null;
   const homeMlbId = homeTeam ? mlbTeamIdForName(homeTeam.name) : null;
   const isMlb = sport?.code === "mlb" && awayMlbId && homeMlbId;
-  const [lineupInfo, awayStandings, homeStandings, awaySeries, homeSeries] = isMlb
+  const [lineupInfo, awayStandings, homeStandings, awaySeries, homeSeries, leaderBadges] = isMlb
     ? await Promise.all([
         getLineupInfo(awayMlbId!, homeMlbId!),
         getStandingsLine(awayMlbId!),
         getStandingsLine(homeMlbId!),
         getSeriesHistory(awayMlbId!),
         getSeriesHistory(homeMlbId!),
+        getTop10Badges(),
       ])
-    : [null, null, null, null, null];
+    : [null, null, null, null, null, new Map<number, string[]>()];
 
   return (
     <div>
@@ -54,6 +56,7 @@ export default async function BroadcastPage() {
           lineupInfo={lineupInfo}
           awayTeamContext={awayStandings ? { standings: awayStandings, series: awaySeries } : null}
           homeTeamContext={homeStandings ? { standings: homeStandings, series: homeSeries } : null}
+          leaderBadges={leaderBadges}
         />
       ) : (
         <>

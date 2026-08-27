@@ -4,6 +4,7 @@ import { getSportByCode, ensureTeam, getTeam, getRoster } from "@/lib/data";
 import { getTomorrowMlbGames } from "@/lib/todaySchedule";
 import { mlbTeamIdForName, shortNameForMlbTeamId } from "@/lib/mlbTeams";
 import { getStandingsLine, getSeriesHistory } from "@/lib/teamContext";
+import { getTop10Badges } from "@/lib/leaders";
 import type { PreviewRosterOption } from "@/components/LiveMatchupPanel";
 
 export const dynamic = "force-dynamic";
@@ -54,15 +55,16 @@ export default async function TomorrowBroadcastPage({
 
   const awayMlbId = mlbTeamIdForName(awayTeam.name);
   const homeMlbId = mlbTeamIdForName(homeTeam.name);
-  const [awayStandings, homeStandings, awaySeries, homeSeries] =
+  const [awayStandings, homeStandings, awaySeries, homeSeries, leaderBadges] =
     awayMlbId && homeMlbId
       ? await Promise.all([
           getStandingsLine(awayMlbId),
           getStandingsLine(homeMlbId),
           getSeriesHistory(awayMlbId),
           getSeriesHistory(homeMlbId),
+          getTop10Badges(),
         ])
-      : [null, null, null, null];
+      : [null, null, null, null, new Map<number, string[]>()];
 
   function toOptions(roster: typeof homeRoster, side: "home" | "away"): PreviewRosterOption[] {
     return roster
@@ -94,6 +96,7 @@ export default async function TomorrowBroadcastPage({
         previewMatchup={{ previewRoster, defaultPitcher }}
         awayTeamContext={awayStandings ? { standings: awayStandings, series: awaySeries } : null}
         homeTeamContext={homeStandings ? { standings: homeStandings, series: homeSeries } : null}
+        leaderBadges={leaderBadges}
       />
     </div>
   );

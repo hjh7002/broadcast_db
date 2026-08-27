@@ -69,11 +69,13 @@ function RosterList({
   players,
   battingOrderOf,
   showStreak,
+  leaderBadges,
 }: {
   sportCode: string;
   players: Player[];
   battingOrderOf?: (player: Player) => number | null;
   showStreak?: boolean;
+  leaderBadges?: Map<number, string[]>;
 }) {
   if (players.length === 0) return null;
   return (
@@ -81,6 +83,8 @@ function RosterList({
       {players.map((p) => {
         const order = battingOrderOf?.(p) ?? null;
         const streak = showStreak ? streakBadge(p) : null;
+        const personId = mlbPersonId(p);
+        const ranks = personId != null ? leaderBadges?.get(personId) : undefined;
         return (
           <li key={p.id}>
             <Link
@@ -91,6 +95,9 @@ function RosterList({
                 {order != null && <span className="mr-1.5 text-xs text-neutral-400 dark:text-neutral-500">{order}번</span>}
                 {p.name}
                 {streak && <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">{streak}</span>}
+                {ranks && ranks.length > 0 && (
+                  <span className="ml-1.5 text-xs text-blue-600 dark:text-blue-400">{ranks.join(", ")}</span>
+                )}
               </span>
               <span className="text-xs text-neutral-500 dark:text-neutral-400">
                 {p.position ?? ""} {p.jersey_number != null ? `#${p.jersey_number}` : ""}
@@ -211,6 +218,7 @@ function TeamColumn({
   teamContext,
   standings,
   opponentCode,
+  leaderBadges,
 }: {
   broadcastId?: string;
   side: "home" | "away";
@@ -223,6 +231,7 @@ function TeamColumn({
   teamContext: TeamContext;
   standings?: StandingsEntry[];
   opponentCode?: string | null;
+  leaderBadges?: Map<number, string[]>;
 }) {
   const firstTeam = roster.filter((p) => (p.bio as Record<string, unknown>).roster_level !== "2군");
   const isBaseball = BASEBALL_SPORT_CODES.has(sport.code);
@@ -277,25 +286,26 @@ function TeamColumn({
                     players={startingBatters}
                     battingOrderOf={(p) => orderMap.get(p.id) ?? null}
                     showStreak={showPregameStreaks}
+                    leaderBadges={leaderBadges}
                   />
                 </>
               )}
               {benchBatters.length > 0 && (
                 <>
                   <SectionHeader label={`벤치 타자 (${benchBatters.length})`} />
-                  <RosterList sportCode={sport.code} players={benchBatters} />
+                  <RosterList sportCode={sport.code} players={benchBatters} leaderBadges={leaderBadges} />
                 </>
               )}
               {startingPitcher && (
                 <>
                   <SectionHeader label="선발 투수" />
-                  <RosterList sportCode={sport.code} players={[startingPitcher]} />
+                  <RosterList sportCode={sport.code} players={[startingPitcher]} leaderBadges={leaderBadges} />
                 </>
               )}
               {benchPitchers.length > 0 && (
                 <>
                   <SectionHeader label={`벤치 투수 (${benchPitchers.length})`} />
-                  <RosterList sportCode={sport.code} players={benchPitchers} />
+                  <RosterList sportCode={sport.code} players={benchPitchers} leaderBadges={leaderBadges} />
                 </>
               )}
             </>
@@ -327,6 +337,7 @@ export default function BroadcastDisplay({
   homeTeamContext,
   headerLabel,
   previewMatchup,
+  leaderBadges,
 }: {
   broadcastId?: string;
   sport: Sport;
@@ -343,6 +354,8 @@ export default function BroadcastDisplay({
   // 투수/타자를 직접 골라보는 모드로 LiveMatchupPanel을 띄운다.
   headerLabel?: string;
   previewMatchup?: { previewRoster: PreviewRosterOption[]; defaultPitcher: { id: number; name: string; side: "home" | "away" } | null } | null;
+  // MLB personId -> ["홈런 3위", ...] — 리그 top10에 든 주요 지표만 이름 옆에 배지로 표시
+  leaderBadges?: Map<number, string[]>;
 }) {
   const awayMlbId = mlbTeamIdForName(awayTeam.name);
   const homeMlbId = mlbTeamIdForName(homeTeam.name);
@@ -375,6 +388,7 @@ export default function BroadcastDisplay({
           teamContext={awayTeamContext ?? null}
           standings={standings}
           opponentCode={teamCode(homeTeam)}
+          leaderBadges={leaderBadges}
         />
         <div className="pt-6 text-xl font-bold text-neutral-300 dark:text-neutral-600">VS</div>
         <TeamColumn
@@ -389,6 +403,7 @@ export default function BroadcastDisplay({
           teamContext={homeTeamContext ?? null}
           standings={standings}
           opponentCode={teamCode(awayTeam)}
+          leaderBadges={leaderBadges}
         />
       </div>
 
