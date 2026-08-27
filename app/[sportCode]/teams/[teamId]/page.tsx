@@ -7,6 +7,7 @@ import { getCoachingStaff, getInjuredList, type CoachEntry, type InjuredPlayer }
 import BasketballRosterTable from "@/components/BasketballRosterTable";
 import BasketballSchedule, { type ScheduleGame } from "@/components/BasketballSchedule";
 import TeamMemoEditor from "@/components/TeamMemoEditor";
+import TeamNewsSection, { type TeamNewsItem } from "@/components/TeamNewsSection";
 
 export const dynamic = "force-dynamic";
 
@@ -231,6 +232,11 @@ export default async function TeamPage({
       )}
 
       <CoachingStaffList staff={coachingStaff} />
+
+      <TeamNewsSection
+        teamId={team.id}
+        initialNews={((team.extra as Record<string, unknown>).news as TeamNewsItem[] | undefined) ?? []}
+      />
 
       {roster.length === 0 ? (
         <p className="text-neutral-500 dark:text-neutral-400">등록된 선수가 없어요.</p>

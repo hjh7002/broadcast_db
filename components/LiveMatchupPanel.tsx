@@ -441,14 +441,20 @@ export default function LiveMatchupPanel({
   const [fetching, setFetching] = useState(false);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
-  // Persisted to sessionStorage (not just state) so a dismissed item stays hidden even
-  // across a page reload or a dev Fast Refresh remount during this browser tab's session.
+  // Persisted to localStorage (not sessionStorage) so a dismissed item stays hidden even
+  // if the browser discards/reloads this background tab to save memory (e.g. Chromium's
+  // memory saver, Whale's equivalent) — sessionStorage lives with the tab's process and
+  // gets wiped by that, which is exactly what caused dismissed news to keep reappearing.
+  // Scoped to today's date so the list can't grow forever across days.
   const DISMISSED_STORAGE_KEY = "live-matchup-dismissed-news";
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
-      const raw = window.sessionStorage.getItem(DISMISSED_STORAGE_KEY);
-      return raw ? new Set(JSON.parse(raw)) : new Set();
+      const raw = window.localStorage.getItem(DISMISSED_STORAGE_KEY);
+      if (!raw) return new Set();
+      const parsed = JSON.parse(raw) as { date: string; keys: string[] };
+      const today = new Date().toLocaleDateString("en-CA");
+      return parsed.date === today ? new Set(parsed.keys) : new Set();
     } catch {
       return new Set();
     }
@@ -467,7 +473,8 @@ export default function LiveMatchupPanel({
       const next = new Set(prev);
       next.add(key);
       try {
-        window.sessionStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify([...next]));
+        const today = new Date().toLocaleDateString("en-CA");
+        window.localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify({ date: today, keys: [...next] }));
       } catch { /* ignore */ }
       return next;
     });

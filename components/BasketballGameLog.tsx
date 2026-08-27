@@ -1,7 +1,8 @@
 export type BasketballGameRow = {
   opp: string;
+  home?: boolean; // omitted (international/neutral-site games) defaults to "vs" like before
   date: string;
-  rd: string;
+  rd?: string;
   MIN: number | null;
   PTS: number;
   FGM: number;
@@ -16,15 +17,15 @@ export type BasketballGameRow = {
   FTM: number;
   FTA: number;
   FTP: number | null;
-  OREB: number;
-  DREB: number;
+  OREB: number | null;
+  DREB: number | null;
   REB: number;
   AST: number;
   PF: number;
   TO: number;
   STL: number;
   BLK: number;
-  PM: number;
+  PM: number | null;
   EFF: number;
 };
 
@@ -75,7 +76,7 @@ export default function BasketballGameLog({ games }: { games: BasketballGameRow[
           {games.map((g, i) => (
             <tr key={i} className="hover:bg-neutral-50 dark:hover:bg-neutral-900">
               <td className="px-3 py-2 whitespace-nowrap">
-                vs {g.opp}
+                {g.home === false ? "@" : "vs"} {g.opp}
                 <span className="ml-1.5 text-xs text-neutral-400 dark:text-neutral-500">{g.date}</span>
                 {g.rd === "평가전" && (
                   <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
@@ -97,7 +98,7 @@ export default function BasketballGameLog({ games }: { games: BasketballGameRow[
               <td className="px-3 py-2">{n0(g.TO)}</td>
               <td className="px-3 py-2">{n0(g.STL)}</td>
               <td className="px-3 py-2">{n0(g.BLK)}</td>
-              <td className="px-3 py-2">{g.PM > 0 ? `+${g.PM}` : g.PM}</td>
+              <td className="px-3 py-2">{g.PM == null ? "-" : g.PM > 0 ? `+${g.PM}` : g.PM}</td>
               <td className="px-3 py-2">{n0(g.EFF)}</td>
             </tr>
           ))}

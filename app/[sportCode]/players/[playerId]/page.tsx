@@ -22,6 +22,7 @@ import PlayerHittingRecentGames, { type HittingRecentGameRow } from "@/component
 import PlayerHittingSingleGameHighs, { type HittingHighLine } from "@/components/PlayerHittingSingleGameHighs";
 import PlayerHittingSplits, { type HittingSplitsInfo, type HittingStreak } from "@/components/PlayerHittingSplits";
 import BasketballGameLog, { type BasketballGameRow } from "@/components/BasketballGameLog";
+import BasketballSplits, { type BasketballSplitsData } from "@/components/BasketballSplits";
 import PlayerMemoEditor from "@/components/PlayerMemoEditor";
 
 export const dynamic = "force-dynamic";
@@ -235,23 +236,40 @@ export default async function PlayerPage({
         {header}
         <p className="mb-4 text-base font-semibold">Summary</p>
         <PlayerStatSummary statFields={statFields} stats={stats} decimals={1} />
-        <PlayerCareerByYear
-          statFields={statFields}
-          years={stats.NATIONAL_TEAM_BY_YEAR as { season: number; team?: string }[] | undefined}
-          career={stats.NATIONAL_TEAM_CAREER as Record<string, unknown> | undefined}
-          label="대표팀 연도별 기록"
-          totalLabel="대표팀 통산"
-        />
-        <PlayerCareerByYear
-          statFields={statFields}
-          years={stats.CLUB_BY_YEAR as { season: number; team?: string }[] | undefined}
-          career={stats.CLUB_CAREER as Record<string, unknown> | undefined}
-          label="소속팀 연도별 기록"
-          totalLabel="소속팀 통산"
-        />
+        {sport.code === "bball_nt" ? (
+          <>
+            <PlayerCareerByYear
+              statFields={statFields}
+              years={stats.NATIONAL_TEAM_BY_YEAR as { season: number; team?: string }[] | undefined}
+              career={stats.NATIONAL_TEAM_CAREER as Record<string, unknown> | undefined}
+              label="대표팀 연도별 기록"
+              totalLabel="대표팀 통산"
+            />
+            <PlayerCareerByYear
+              statFields={statFields}
+              years={stats.CLUB_BY_YEAR as { season: number; team?: string }[] | undefined}
+              career={stats.CLUB_CAREER as Record<string, unknown> | undefined}
+              label="소속팀 연도별 기록"
+              totalLabel="소속팀 통산"
+            />
+          </>
+        ) : (
+          <PlayerCareerByYear
+            statFields={statFields}
+            years={stats.SEASON_HISTORY as { season: number; team?: string }[] | undefined}
+            career={stats.CAREER_TOTALS as Record<string, unknown> | undefined}
+            label="연도별 기록"
+            totalLabel="통산"
+          />
+        )}
         <div className="mt-8">
           <BasketballGameLog games={stats.GAME_LOG as BasketballGameRow[] | undefined} />
         </div>
+        {sport.code !== "bball_nt" && (
+          <div className="mt-8">
+            <BasketballSplits splits={stats.SPLITS as BasketballSplitsData | undefined} />
+          </div>
+        )}
         <PlayerMemoEditor playerId={player.id} initialMemo={(bio.memo as string | null) ?? ""} />
       </div>
     );
