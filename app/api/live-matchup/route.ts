@@ -1085,6 +1085,13 @@ export async function GET(request: Request) {
   const awayTeamId = Number(searchParams.get("awayTeamId"));
   const homeTeamId = Number(searchParams.get("homeTeamId"));
   const overrideGamePk = searchParams.get("gamePk");
+  // Manual pitcher/batter override for the "내일의 중계" prep view — a future game has no
+  // live at-bat to derive these from, so the client picks them explicitly instead.
+  const overridePitcherId = searchParams.get("pitcherId");
+  const overridePitcherName = searchParams.get("pitcherName");
+  const overridePitcherSide = searchParams.get("pitcherSide") as "home" | "away" | null;
+  const overrideBatterId = searchParams.get("batterId");
+  const overrideBatterName = searchParams.get("batterName");
 
   if (!awayTeamId || !homeTeamId) {
     return NextResponse.json({ error: "awayTeamId, homeTeamId required" }, { status: 400 });
@@ -1101,12 +1108,17 @@ export async function GET(request: Request) {
 
   // isTopInning true -> away team is batting -> home team is pitching (and vice versa)
   const isTopInning: boolean | undefined = currentPlay?.about?.isTopInning;
-  const pitcherSide: "home" | "away" = isTopInning === undefined ? "home" : isTopInning ? "home" : "away";
+  const pitcherSide: "home" | "away" =
+    overridePitcherSide ?? (isTopInning === undefined ? "home" : isTopInning ? "home" : "away");
   const batterSide: "home" | "away" = pitcherSide === "home" ? "away" : "home";
 
   const fallbackPitcher = pitcherSide === "away" ? feed.gameData?.probablePitchers?.away : feed.gameData?.probablePitchers?.home;
-  const pitcher = currentPlay?.matchup?.pitcher || fallbackPitcher || feed.gameData?.probablePitchers?.away || feed.gameData?.probablePitchers?.home;
-  const batter = currentPlay?.matchup?.batter || null;
+  const pitcher = overridePitcherId
+    ? { id: Number(overridePitcherId), fullName: overridePitcherName || "" }
+    : currentPlay?.matchup?.pitcher || fallbackPitcher || feed.gameData?.probablePitchers?.away || feed.gameData?.probablePitchers?.home;
+  const batter = overrideBatterId
+    ? { id: Number(overrideBatterId), fullName: overrideBatterName || "" }
+    : currentPlay?.matchup?.batter || null;
 
   // when not in progress, just show away probable pitcher vs home probable pitcher context
   const isLive = status === "In Progress";

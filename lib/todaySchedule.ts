@@ -98,3 +98,62 @@ export async function getTodayGames(): Promise<{ kstDate: string; mlb: ScheduleG
   const [mlb, kbo] = await Promise.all([getTodayMlbGames(kstDate), getTodayKboGames(kstDate)]);
   return { kstDate, mlb, kbo };
 }
+
+export function tomorrowKst(): string {
+  return addDays(todayKst(), 1);
+}
+
+export type PreviewProbablePitcher = { id: number; name: string } | null;
+
+export type MlbPreviewGame = {
+  gamePk: number;
+  awayName: string;
+  homeName: string;
+  timeLabel: string;
+  status: string;
+  awayPitcher: PreviewProbablePitcher;
+  homePitcher: PreviewProbablePitcher;
+};
+
+// Same KST-windowed matching as getTodayMlbGames, but hydrated with probablePitcher so
+// the "내일의 중계" picker can show (and default to) the announced starters — MLB usually
+// posts these a few days ahead of a Preview-state game.
+export async function getTomorrowMlbGames(): Promise<MlbPreviewGame[]> {
+  const kstDate = tomorrowKst();
+  try {
+    const startDate = addDays(kstDate, -1);
+    const data = await getJson(
+      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${startDate}&endDate=${kstDate}&hydrate=probablePitcher`,
+    );
+    const games: MlbPreviewGame[] = [];
+    for (const dd of data.dates || []) {
+      for (const g of dd.games || []) {
+        const gd = new Date(g.gameDate);
+        if (toKstDateStr(gd) !== kstDate) continue;
+        const awayId = g.teams?.away?.team?.id;
+        const homeId = g.teams?.home?.team?.id;
+        if (!awayId || !homeId) continue;
+        const awayP = g.teams?.away?.probablePitcher;
+        const homeP = g.teams?.home?.probablePitcher;
+        games.push({
+          gamePk: g.gamePk,
+          awayName: koreanNameForMlbTeamId(awayId),
+          homeName: koreanNameForMlbTeamId(homeId),
+          timeLabel: gd.toLocaleTimeString("ko-KR", {
+            timeZone: "Asia/Seoul",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }),
+          status: g.status?.detailedState ?? "",
+          awayPitcher: awayP ? { id: awayP.id, name: awayP.fullName } : null,
+          homePitcher: homeP ? { id: homeP.id, name: homeP.fullName } : null,
+        });
+      }
+    }
+    games.sort((a, b) => a.timeLabel.localeCompare(b.timeLabel));
+    return games;
+  } catch {
+    return [];
+  }
+}

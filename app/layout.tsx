@@ -45,6 +45,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             >
               오늘의 중계
             </Link>
+            <Link
+              href="/broadcast/tomorrow"
+              className="rounded-full px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              내일의 중계
+            </Link>
             <span className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
             {sports.map((sport) => (
               <Link

@@ -427,15 +427,28 @@ function SideSlot({ side, data }: { side: "home" | "away"; data: MatchupData | n
   );
 }
 
+export type PreviewRosterOption = { id: number; name: string; side: "home" | "away"; isPitcher: boolean };
+
 export default function LiveMatchupPanel({
   awayTeamMlbId,
   homeTeamMlbId,
   overrideGamePk,
+  previewMode = false,
+  previewRoster,
+  defaultPitcher,
 }: {
   awayTeamMlbId: number;
   homeTeamMlbId: number;
   overrideGamePk?: number;
+  // "내일의 중계" 예습용 — 라이브 타석이 없으니 투수/타자를 직접 골라서 미리 본다.
+  previewMode?: boolean;
+  previewRoster?: PreviewRosterOption[];
+  defaultPitcher?: { id: number; name: string; side: "home" | "away" } | null;
 }) {
+  const [selPitcher, setSelPitcher] = useState<{ id: number; name: string; side: "home" | "away" } | null>(
+    defaultPitcher ?? null,
+  );
+  const [selBatterId, setSelBatterId] = useState<number | null>(null);
   const [data, setData] = useState<MatchupData | { status: "no_game" } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
@@ -482,6 +495,10 @@ export default function LiveMatchupPanel({
   }
 
   useEffect(() => {
+    if (previewMode && !selPitcher) {
+      setData(null);
+      return;
+    }
     let cancelled = false;
     async function fetchData() {
       setFetching(true);
@@ -491,6 +508,16 @@ export default function LiveMatchupPanel({
           homeTeamId: String(homeTeamMlbId),
         });
         if (overrideGamePk) params.set("gamePk", String(overrideGamePk));
+        if (previewMode && selPitcher) {
+          params.set("pitcherId", String(selPitcher.id));
+          params.set("pitcherName", selPitcher.name);
+          params.set("pitcherSide", selPitcher.side);
+          if (selBatterId) {
+            const batter = previewRoster?.find((p) => p.id === selBatterId);
+            params.set("batterId", String(selBatterId));
+            params.set("batterName", batter?.name ?? "");
+          }
+        }
         const res = await fetch(`/api/live-matchup?${params.toString()}`, { cache: "no-store" });
         const json = await res.json();
         if (!cancelled) {
@@ -542,25 +569,76 @@ export default function LiveMatchupPanel({
       }
     }
     fetchData();
-    const interval = setInterval(fetchData, 15000);
+    // Preview mode has no live game state to poll for — a manual re-pick (pitcher/batter
+    // change) already re-triggers this effect via the dependency array below.
+    const interval = previewMode ? null : setInterval(fetchData, 15000);
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
-  }, [awayTeamMlbId, homeTeamMlbId, overrideGamePk]);
+  }, [awayTeamMlbId, homeTeamMlbId, overrideGamePk, previewMode, selPitcher, selBatterId, previewRoster]);
+
+  const pitcherOptions = previewRoster?.filter((p) => p.isPitcher) ?? [];
+  const batterOptions = selPitcher ? (previewRoster?.filter((p) => !p.isPitcher && p.side !== selPitcher.side) ?? []) : [];
+
+  const picker = previewMode && (
+    <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-neutral-300 p-2.5 text-sm dark:border-neutral-700">
+      <span className="text-xs text-neutral-500 dark:text-neutral-400">예습할 매치업</span>
+      <select
+        value={selPitcher ? `${selPitcher.side}-${selPitcher.id}` : ""}
+        onChange={(e) => {
+          const [side, idStr] = e.target.value.split("-");
+          const opt = pitcherOptions.find((p) => String(p.id) === idStr && p.side === side);
+          setSelPitcher(opt ? { id: opt.id, name: opt.name, side: opt.side } : null);
+          setSelBatterId(null);
+        }}
+        className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <option value="">투수 선택</option>
+        {pitcherOptions.map((p) => (
+          <option key={`${p.side}-${p.id}`} value={`${p.side}-${p.id}`}>
+            {p.side === "away" ? "원정" : "홈"} · {p.name}
+          </option>
+        ))}
+      </select>
+      <span className="text-xs text-neutral-400 dark:text-neutral-500">vs</span>
+      <select
+        value={selBatterId ?? ""}
+        onChange={(e) => setSelBatterId(e.target.value ? Number(e.target.value) : null)}
+        disabled={!selPitcher}
+        className="rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900"
+      >
+        <option value="">타자 선택 (선택 안 하면 투수 정보만)</option>
+        {batterOptions.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 
   if (error) return <p className="text-sm text-red-500">{error}</p>;
+  if (previewMode && !selPitcher) {
+    return (
+      <div>
+        {picker}
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">투수를 먼저 선택해주세요.</p>
+      </div>
+    );
+  }
   if (!data) return <p className="text-sm text-neutral-500 dark:text-neutral-400">불러오는 중...</p>;
   if (data.status === "no_game") {
-    return <p className="text-sm text-neutral-500 dark:text-neutral-400">오늘 예정된 경기가 없어요.</p>;
+    return <p className="text-sm text-neutral-500 dark:text-neutral-400">예정된 경기 정보를 찾지 못했어요.</p>;
   }
 
   const md = data as MatchupData;
 
   return (
     <div>
+      {picker}
       <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold">실시간 매치업</p>
+        <p className="text-sm font-semibold">{previewMode ? "매치업 예습" : "실시간 매치업"}</p>
         <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
           <span className="relative flex h-2 w-2">
             {fetching && (

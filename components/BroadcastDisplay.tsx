@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Sport, Team, Player } from "@/lib/supabase/types";
 import EndBroadcastButton from "@/components/EndBroadcastButton";
 import TeamNoteEditor from "@/components/TeamNoteEditor";
-import LiveMatchupPanel from "@/components/LiveMatchupPanel";
+import LiveMatchupPanel, { type PreviewRosterOption } from "@/components/LiveMatchupPanel";
 import BasketballBroadcastRoster from "@/components/BasketballBroadcastRoster";
 
 // MLB/KBO get the pitcher/batter lineup treatment below; every other sport
@@ -212,7 +212,7 @@ function TeamColumn({
   standings,
   opponentCode,
 }: {
-  broadcastId: string;
+  broadcastId?: string;
   side: "home" | "away";
   sport: Sport;
   team: Team;
@@ -256,9 +256,12 @@ function TeamColumn({
       )}
 
       {/* 메모 영역: 야구는 카드 높이의 절반 이상(flex-[3]), 농구는 직접 드래그로 크기 조절 */}
-      <div className={isBaseball ? "flex-[3] min-h-0" : "shrink-0"}>
-        <TeamNoteEditor broadcastId={broadcastId} side={side} initialNote={note ?? ""} />
-      </div>
+      {/* 예습("내일의 중계") 모드는 broadcastId가 없는 임시 화면이라 저장할 곳이 없는 메모는 생략 */}
+      {broadcastId && (
+        <div className={isBaseball ? "flex-[3] min-h-0" : "shrink-0"}>
+          <TeamNoteEditor broadcastId={broadcastId} side={side} initialNote={note ?? ""} />
+        </div>
+      )}
 
       {firstTeam.length > 0 && (
         <div
@@ -322,8 +325,10 @@ export default function BroadcastDisplay({
   lineupInfo,
   awayTeamContext,
   homeTeamContext,
+  headerLabel,
+  previewMatchup,
 }: {
-  broadcastId: string;
+  broadcastId?: string;
   sport: Sport;
   homeTeam: Team;
   awayTeam: Team;
@@ -334,6 +339,10 @@ export default function BroadcastDisplay({
   lineupInfo?: LineupInfo | null;
   awayTeamContext?: TeamContext;
   homeTeamContext?: TeamContext;
+  // "내일의 중계" 예습 화면은 header 문구가 다르고("내일의 중계"), 라이브 타석이 없으니
+  // 투수/타자를 직접 골라보는 모드로 LiveMatchupPanel을 띄운다.
+  headerLabel?: string;
+  previewMatchup?: { previewRoster: PreviewRosterOption[]; defaultPitcher: { id: number; name: string; side: "home" | "away" } | null } | null;
 }) {
   const awayMlbId = mlbTeamIdForName(awayTeam.name);
   const homeMlbId = mlbTeamIdForName(homeTeam.name);
@@ -348,9 +357,9 @@ export default function BroadcastDisplay({
   return (
     <div className="relative left-1/2 w-screen max-w-[96rem] -translate-x-1/2">
     <div className="relative rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
-      <EndBroadcastButton broadcastId={broadcastId} />
+      {broadcastId && <EndBroadcastButton broadcastId={broadcastId} />}
       <p className="mb-4 text-center text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-        오늘의 중계 · {sport.name}
+        {headerLabel ?? "오늘의 중계"} · {sport.name}
       </p>
       {/* 원정팀(away) 좌측, 홈팀(home) 우측 */}
       <div className="flex items-start justify-center gap-6">
@@ -385,7 +394,17 @@ export default function BroadcastDisplay({
 
       {sport.code === "mlb" && awayMlbId && homeMlbId && (
         <div className="mt-6">
-          <LiveMatchupPanel awayTeamMlbId={awayMlbId} homeTeamMlbId={homeMlbId} />
+          {previewMatchup ? (
+            <LiveMatchupPanel
+              awayTeamMlbId={awayMlbId}
+              homeTeamMlbId={homeMlbId}
+              previewMode
+              previewRoster={previewMatchup.previewRoster}
+              defaultPitcher={previewMatchup.defaultPitcher}
+            />
+          ) : (
+            <LiveMatchupPanel awayTeamMlbId={awayMlbId} homeTeamMlbId={homeMlbId} />
+          )}
         </div>
       )}
 
