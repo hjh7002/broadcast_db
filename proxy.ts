@@ -17,7 +17,7 @@ async function expectedToken(): Promise<string | null> {
   return toHex(digest);
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/login") || req.nextUrl.pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
