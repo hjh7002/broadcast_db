@@ -81,6 +81,8 @@ type BatterInfo = {
   affiliations: Affiliations;
   notableFacts: string[];
   handSplits: { label: string; avg: string }[];
+  homeAwaySplit: { home: { avg: string; hr: number } | null; away: { avg: string; hr: number } | null } | null;
+  pinchHitSplit: { ab: number; hits: number; avg: string; hr: number } | null;
   runnerSplits: RunnerSplitLine[];
   basesLoadedStat: BasesLoadedStat;
 };
@@ -376,6 +378,19 @@ function BatterCard({ b }: { b: BatterInfo }) {
           {b.handSplits.map((c) => (
             <Card key={c.label} label={c.label}>{c.avg}</Card>
           ))}
+        </div>
+      )}
+      {b.homeAwaySplit && (b.homeAwaySplit.home || b.homeAwaySplit.away) && (
+        <div className="mb-2 grid grid-cols-2 gap-2">
+          {b.homeAwaySplit.home && <Card label="홈">{b.homeAwaySplit.home.avg} {b.homeAwaySplit.home.hr}홈런</Card>}
+          {b.homeAwaySplit.away && <Card label="원정">{b.homeAwaySplit.away.avg} {b.homeAwaySplit.away.hr}홈런</Card>}
+        </div>
+      )}
+      {b.pinchHitSplit && (
+        <div className="mb-2">
+          <Card label="대타">
+            {b.pinchHitSplit.avg}({b.pinchHitSplit.hits}-{b.pinchHitSplit.ab}) {b.pinchHitSplit.hr}홈런
+          </Card>
         </div>
       )}
       {b.runnerSplits.length > 0 && (

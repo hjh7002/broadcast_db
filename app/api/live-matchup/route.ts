@@ -444,6 +444,33 @@ async function getHandednessSplits(
   return order.filter((code) => byCode[code]).map((code) => ({ label: label[code], avg: avgFrom(byCode[code].hits, byCode[code].ab) }));
 }
 
+// Season-to-date, not adjusted for today's game (unlike most stats here) — a batter's
+// home/away or pinch-hit split almost never swings meaningfully off one game's worth of
+// at-bats, and there's no simple play-by-play flag to attribute a plate appearance to
+// "pinch hit" the way hand/runner-state splits already are (see getTodaySplitDeltas).
+async function getHomeAwaySplit(personId: number) {
+  const d = await mlbGet(
+    `https://statsapi.mlb.com/api/v1/people/${personId}/stats?stats=statSplits&group=hitting&sitCodes=h,a&season=2026`,
+  );
+  const splits = d.stats?.[0]?.splits || [];
+  const byCode: Record<string, { avg: string; hr: number }> = {};
+  for (const s of splits) {
+    const code = s.split?.code;
+    if (code === "h" || code === "a") byCode[code] = { avg: s.stat.avg, hr: s.stat.homeRuns || 0 };
+  }
+  if (!byCode.h && !byCode.a) return null;
+  return { home: byCode.h ?? null, away: byCode.a ?? null };
+}
+
+async function getPinchHitSplit(personId: number) {
+  const d = await mlbGet(
+    `https://statsapi.mlb.com/api/v1/people/${personId}/stats?stats=statSplits&group=hitting&sitCodes=pH&season=2026`,
+  );
+  const s = d.stats?.[0]?.splits?.[0];
+  if (!s?.stat?.atBats) return null;
+  return { ab: s.stat.atBats, hits: s.stat.hits || 0, avg: s.stat.avg, hr: s.stat.homeRuns || 0 };
+}
+
 const RUNNER_SIT_LABEL: Record<string, string> = {
   r0: "주자 없음",
   ron: "주자 있음",
@@ -1234,7 +1261,7 @@ export async function GET(request: Request) {
 
     const batterTodayDeltas = getTodaySplitDeltas(feed, batter.id, "hitting");
 
-    const [matchupHistory, seriesAndStreak, pitchCategoryAvg, batterCurated, batterVsOpponentTeam, batterNotableFacts, batterHandSplits, batterBio, batterRunnerSplits, batterBasesLoadedStat] = await Promise.all([
+    const [matchupHistory, seriesAndStreak, pitchCategoryAvg, batterCurated, batterVsOpponentTeam, batterNotableFacts, batterHandSplits, batterBio, batterRunnerSplits, batterBasesLoadedStat, batterHomeAwaySplit, batterPinchHitSplit] = await Promise.all([
       getMatchupHistory(pitcher.id, batter.id, pitcherTeamId, batterTeamId, feed).catch(() => null),
       getBatterSeriesAndStreak(batter.id, pitcherTeamId, feed).catch(() => null),
       getBatterPitchCategoryAvg(batter.id).catch(() => null),
@@ -1245,6 +1272,8 @@ export async function GET(request: Request) {
       getPersonBioInfo(batter.id).catch(() => null),
       getRunnerSplits(batter.id, "hitting", batterTodayDeltas.runner).catch(() => []),
       basesLoaded ? getBasesLoadedStat(batter.id, "hitting", batterTodayDeltas.loaded).catch(() => null) : Promise.resolve(null),
+      getHomeAwaySplit(batter.id).catch(() => null),
+      getPinchHitSplit(batter.id).catch(() => null),
     ]);
 
     const affiliations = computeAffiliations(pitcherHistory, batterHistory, pitcherTeamId, batterTeamId);
@@ -1259,6 +1288,7 @@ export async function GET(request: Request) {
       opponentTeamName: koreanNameForMlbTeamId(pitcherTeamId), affiliations,
       notableFacts: [...batterNotableFacts, ...(batterBirthdayFact ? [batterBirthdayFact] : []), ...sharedConnectionFacts],
       runnerSplits: batterRunnerSplits, basesLoadedStat: batterBasesLoadedStat,
+      homeAwaySplit: batterHomeAwaySplit, pinchHitSplit: batterPinchHitSplit,
     };
   }
 
