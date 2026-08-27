@@ -57,8 +57,13 @@ export default async function BroadcastPage() {
         />
       ) : (
         <>
+          <p className="mb-6 text-neutral-500 dark:text-neutral-400">
+            새로 오늘 중계할 두 팀을 선택해주세요.
+          </p>
+          <BroadcastForm sports={sports} teams={teams} />
+
           {endedBroadcasts.length > 0 && (
-            <div className="mb-6">
+            <div className="mt-6">
               <h2 className="mb-2 text-sm font-medium text-neutral-600 dark:text-neutral-300">
                 최근 종료한 중계 — 다시 켤 수 있어요
               </h2>
@@ -80,10 +85,6 @@ export default async function BroadcastPage() {
               </ul>
             </div>
           )}
-          <p className="mb-6 text-neutral-500 dark:text-neutral-400">
-            새로 오늘 중계할 두 팀을 선택해주세요.
-          </p>
-          <BroadcastForm sports={sports} teams={teams} />
         </>
       )}
     </div>

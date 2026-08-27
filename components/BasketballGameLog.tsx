@@ -77,6 +77,11 @@ export default function BasketballGameLog({ games }: { games: BasketballGameRow[
               <td className="px-3 py-2 whitespace-nowrap">
                 vs {g.opp}
                 <span className="ml-1.5 text-xs text-neutral-400 dark:text-neutral-500">{g.date}</span>
+                {g.rd === "평가전" && (
+                  <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                    평가전
+                  </span>
+                )}
               </td>
               <td className="px-3 py-2">{n0(g.MIN)}</td>
               <td className="px-3 py-2 font-medium text-neutral-900 dark:text-neutral-100">{n0(g.PTS)}</td>

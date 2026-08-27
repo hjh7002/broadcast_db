@@ -73,9 +73,17 @@ function BaseballRosterTable({ players, sportCode }: { players: Player[]; sportC
   );
 }
 
-function RosterGroup({ players, sportCode }: { players: Player[]; sportCode: string }) {
+function RosterGroup({
+  players,
+  sportCode,
+  finalRosterIds,
+}: {
+  players: Player[];
+  sportCode: string;
+  finalRosterIds?: string[];
+}) {
   if (!BASEBALL_SPORT_CODES.has(sportCode)) {
-    return <BasketballRosterTable players={players} sportCode={sportCode} />;
+    return <BasketballRosterTable players={players} sportCode={sportCode} finalRosterIds={finalRosterIds} />;
   }
 
   const pitchers = players.filter(isPitcher);
@@ -234,7 +242,11 @@ export default async function TeamPage({
           {firstTeam.length === 0 ? (
             <p className="text-sm text-neutral-500 dark:text-neutral-400">등록 선수가 없어요.</p>
           ) : (
-            <RosterGroup players={firstTeam} sportCode={sport.code} />
+            <RosterGroup
+              players={firstTeam}
+              sportCode={sport.code}
+              finalRosterIds={(team.extra as Record<string, unknown>).final_roster_ids as string[] | undefined}
+            />
           )}
 
           {secondTeam.length > 0 && (

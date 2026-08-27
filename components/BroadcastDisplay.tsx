@@ -3,6 +3,12 @@ import type { Sport, Team, Player } from "@/lib/supabase/types";
 import EndBroadcastButton from "@/components/EndBroadcastButton";
 import TeamNoteEditor from "@/components/TeamNoteEditor";
 import LiveMatchupPanel from "@/components/LiveMatchupPanel";
+import BasketballBroadcastRoster from "@/components/BasketballBroadcastRoster";
+
+// MLB/KBO get the pitcher/batter lineup treatment below; every other sport
+// (NBA, 농구 국가대표, ...) gets a plain position-grouped roster instead —
+// mirrors the same split used on the team/player detail pages.
+const BASEBALL_SPORT_CODES = new Set(["mlb", "kbo"]);
 import { mlbTeamIdForName } from "@/lib/mlbTeams";
 import type { LineupInfo, TeamLineupInfo } from "@/lib/liveLineup";
 import type { StandingsLine, SeriesSummary } from "@/lib/teamContext";
@@ -139,6 +145,60 @@ function SectionHeader({ label }: { label: string }) {
   );
 }
 
+type StandingsEntry = { code: string; rank: number; wins: number; losses: number; points: number; name_ko: string };
+type ScheduleEntry = {
+  opponent_name: string;
+  venue?: string;
+  status: "finished" | "scheduled";
+  date: string;
+};
+
+// group_standings is only stored on whichever team row happened to seed it first
+// (see GroupStandingsTable) — so look this team up by matching its FIBA code against
+// every entry rather than assuming it's on `team` itself. Matching by full country
+// name rather than standings' own `name_ko` because "대한민국" (Korea's full name)
+// doesn't actually contain "한국" as a substring — the two diverge for Korea specifically.
+const CODE_BY_NAME_FRAGMENT: Record<string, string> = {
+  대한민국: "KOR",
+  레바논: "LBN",
+  사우디아라비아: "KSA",
+  일본: "JPN",
+  중국: "CHN",
+  카타르: "QAT",
+};
+
+function teamCode(team: Team): string | null {
+  const fragment = Object.keys(CODE_BY_NAME_FRAGMENT).find((f) => team.name.includes(f));
+  return fragment ? CODE_BY_NAME_FRAGMENT[fragment] : null;
+}
+
+function teamRecord(team: Team, standings: StandingsEntry[] | undefined): string | null {
+  const code = teamCode(team);
+  const entry = standings?.find((s) => s.code === code);
+  return entry ? `${entry.wins}승 ${entry.losses}패` : null;
+}
+
+function teamCoach(team: Team): string | null {
+  const extra = team.extra as Record<string, unknown>;
+  const staff = extra.coaching_staff as { name: string; role: string }[] | undefined;
+  const head = staff?.find((s) => s.role === "감독") ?? staff?.[0];
+  return head?.name ?? null;
+}
+
+// Find the venue for the specific game between these two teams by checking each
+// team's own schedule for an entry naming the other team — prefers a still-"scheduled"
+// entry (i.e. today's/upcoming game) over an already-finished one.
+function matchupVenue(homeTeam: Team, awayTeam: Team): string | null {
+  const search = (team: Team, opponent: Team) => {
+    const schedule = (team.extra as Record<string, unknown>).schedule as ScheduleEntry[] | undefined;
+    if (!schedule) return [];
+    return schedule.filter((g) => opponent.name.includes(g.opponent_name) && g.venue);
+  };
+  const candidates = [...search(homeTeam, awayTeam), ...search(awayTeam, homeTeam)];
+  const scheduled = candidates.find((g) => g.status === "scheduled");
+  return (scheduled ?? candidates[0])?.venue ?? null;
+}
+
 function TeamColumn({
   broadcastId,
   side,
@@ -149,6 +209,7 @@ function TeamColumn({
   lineup,
   gameState,
   teamContext,
+  standings,
 }: {
   broadcastId: string;
   side: "home" | "away";
@@ -159,15 +220,26 @@ function TeamColumn({
   lineup: TeamLineupInfo | null | undefined;
   gameState: LineupInfo["gameState"] | undefined;
   teamContext: TeamContext;
+  standings?: StandingsEntry[];
 }) {
   const firstTeam = roster.filter((p) => (p.bio as Record<string, unknown>).roster_level !== "2군");
-  const { startingBatters, benchBatters, startingPitcher, benchPitchers, orderMap } = groupByLineup(firstTeam, lineup);
+  const isBaseball = BASEBALL_SPORT_CODES.has(sport.code);
+  const { startingBatters, benchBatters, startingPitcher, benchPitchers, orderMap } = isBaseball
+    ? groupByLineup(firstTeam, lineup)
+    : { startingBatters: [], benchBatters: [], startingPitcher: null, benchPitchers: [], orderMap: new Map<string, number>() };
   // Streaks are pregame color only — once the game goes live, today's game itself
   // will start moving them, so the badge is dropped rather than show a stale number.
   const showPregameStreaks = gameState === "Preview";
 
+  // Baseball keeps a fixed-height card with a scrolling roster (rosters run
+  // 20-40+ deep with bench/pitchers). Basketball rosters are ~12-24 players and
+  // the ask is to see them all at once with no scroll, so the card grows to fit
+  // its content instead, and the memo above it is just user-resizable (drag the
+  // textarea's own resize handle) rather than flex-sized against a fixed card height.
   return (
-    <div className="flex h-[44rem] flex-1 flex-col rounded-lg border border-neutral-200 dark:border-neutral-800">
+    <div
+      className={`flex flex-1 flex-col rounded-lg border border-neutral-200 dark:border-neutral-800 ${isBaseball ? "h-[44rem]" : ""}`}
+    >
       <Link
         href={`/${sport.code}/teams/${team.id}`}
         className="block shrink-0 px-4 pt-4 text-center hover:bg-neutral-50 dark:hover:bg-neutral-900"
@@ -175,42 +247,59 @@ function TeamColumn({
         <div className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{team.name}</div>
       </Link>
       <TeamContextHeader context={teamContext} />
+      {!isBaseball && (teamRecord(team, standings) || teamCoach(team)) && (
+        <p className="px-3 pb-2 text-center text-xs text-neutral-500 dark:text-neutral-400">
+          {[teamRecord(team, standings), teamCoach(team) ? `감독 ${teamCoach(team)}` : null].filter(Boolean).join(" · ")}
+        </p>
+      )}
 
-      {/* 메모 영역: 카드 높이의 절반 이상을 차지하도록 flex-[3] */}
-      <div className="flex-[3] min-h-0">
+      {/* 메모 영역: 야구는 카드 높이의 절반 이상(flex-[3]), 농구는 직접 드래그로 크기 조절 */}
+      <div className={isBaseball ? "flex-[3] min-h-0" : "shrink-0"}>
         <TeamNoteEditor broadcastId={broadcastId} side={side} initialNote={note ?? ""} />
       </div>
 
       {firstTeam.length > 0 && (
-        <div className="flex-[2] min-h-0 overflow-y-auto border-t border-neutral-200 dark:border-neutral-800">
-          {startingBatters.length > 0 && (
+        <div
+          className={`border-t border-neutral-200 dark:border-neutral-800 ${isBaseball ? "flex-[2] min-h-0 overflow-y-auto" : ""}`}
+        >
+          {isBaseball ? (
             <>
-              <SectionHeader label={`선발 타자 (${startingBatters.length})`} />
-              <RosterList
-                sportCode={sport.code}
-                players={startingBatters}
-                battingOrderOf={(p) => orderMap.get(p.id) ?? null}
-                showStreak={showPregameStreaks}
-              />
+              {startingBatters.length > 0 && (
+                <>
+                  <SectionHeader label={`선발 타자 (${startingBatters.length})`} />
+                  <RosterList
+                    sportCode={sport.code}
+                    players={startingBatters}
+                    battingOrderOf={(p) => orderMap.get(p.id) ?? null}
+                    showStreak={showPregameStreaks}
+                  />
+                </>
+              )}
+              {benchBatters.length > 0 && (
+                <>
+                  <SectionHeader label={`벤치 타자 (${benchBatters.length})`} />
+                  <RosterList sportCode={sport.code} players={benchBatters} />
+                </>
+              )}
+              {startingPitcher && (
+                <>
+                  <SectionHeader label="선발 투수" />
+                  <RosterList sportCode={sport.code} players={[startingPitcher]} />
+                </>
+              )}
+              {benchPitchers.length > 0 && (
+                <>
+                  <SectionHeader label={`벤치 투수 (${benchPitchers.length})`} />
+                  <RosterList sportCode={sport.code} players={benchPitchers} />
+                </>
+              )}
             </>
-          )}
-          {benchBatters.length > 0 && (
-            <>
-              <SectionHeader label={`벤치 타자 (${benchBatters.length})`} />
-              <RosterList sportCode={sport.code} players={benchBatters} />
-            </>
-          )}
-          {startingPitcher && (
-            <>
-              <SectionHeader label="선발 투수" />
-              <RosterList sportCode={sport.code} players={[startingPitcher]} />
-            </>
-          )}
-          {benchPitchers.length > 0 && (
-            <>
-              <SectionHeader label={`벤치 투수 (${benchPitchers.length})`} />
-              <RosterList sportCode={sport.code} players={benchPitchers} />
-            </>
+          ) : (
+            <BasketballBroadcastRoster
+              sportCode={sport.code}
+              players={firstTeam}
+              finalRosterIds={(team.extra as Record<string, unknown>).final_roster_ids as string[] | undefined}
+            />
           )}
         </div>
       )}
@@ -245,6 +334,11 @@ export default function BroadcastDisplay({
 }) {
   const awayMlbId = mlbTeamIdForName(awayTeam.name);
   const homeMlbId = mlbTeamIdForName(homeTeam.name);
+  const isBaseball = BASEBALL_SPORT_CODES.has(sport.code);
+  const venue = !isBaseball ? matchupVenue(homeTeam, awayTeam) : null;
+  const standings =
+    ((homeTeam.extra as Record<string, unknown>).group_standings as StandingsEntry[] | undefined) ??
+    ((awayTeam.extra as Record<string, unknown>).group_standings as StandingsEntry[] | undefined);
 
   return (
     <div className="relative rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
@@ -264,6 +358,7 @@ export default function BroadcastDisplay({
           lineup={lineupInfo?.away}
           gameState={lineupInfo?.gameState}
           teamContext={awayTeamContext ?? null}
+          standings={standings}
         />
         <div className="pt-6 text-xl font-bold text-neutral-300 dark:text-neutral-600">VS</div>
         <TeamColumn
@@ -276,6 +371,7 @@ export default function BroadcastDisplay({
           lineup={lineupInfo?.home}
           gameState={lineupInfo?.gameState}
           teamContext={homeTeamContext ?? null}
+          standings={standings}
         />
       </div>
 
@@ -283,6 +379,10 @@ export default function BroadcastDisplay({
         <div className="mt-6">
           <LiveMatchupPanel awayTeamMlbId={awayMlbId} homeTeamMlbId={homeMlbId} />
         </div>
+      )}
+
+      {venue && (
+        <p className="mt-6 text-center text-xs text-neutral-500 dark:text-neutral-400">경기 장소: {venue}</p>
       )}
     </div>
   );

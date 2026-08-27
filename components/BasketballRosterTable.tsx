@@ -22,26 +22,17 @@ const SORTABLE_COLUMNS = [
 
 type SortKey = (typeof SORTABLE_COLUMNS)[number]["key"];
 
-export default function BasketballRosterTable({
+function RosterTable({
   players,
   sportCode,
+  sortKey,
+  setSortKey,
 }: {
   players: Player[];
   sportCode: string;
+  sortKey: SortKey | null;
+  setSortKey: (k: SortKey | null) => void;
 }) {
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
-
-  const sorted = useMemo(() => {
-    if (!sortKey) return players;
-    return [...players].sort((a, b) => {
-      const av = (a.stats as Record<string, unknown>)[sortKey];
-      const bv = (b.stats as Record<string, unknown>)[sortKey];
-      const an = typeof av === "number" ? av : -Infinity;
-      const bn = typeof bv === "number" ? bv : -Infinity;
-      return bn - an; // 내림차순
-    });
-  }, [players, sortKey]);
-
   return (
     <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
       <table className="w-full min-w-[760px] text-left text-sm">
@@ -70,7 +61,7 @@ export default function BasketballRosterTable({
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-200 text-neutral-800 dark:divide-neutral-800 dark:text-neutral-200">
-          {sorted.map((player) => {
+          {players.map((player) => {
             const bio = player.bio as Record<string, unknown>;
             const stats = player.stats as Record<string, unknown>;
             const heightCm = bio.height_cm;
@@ -98,4 +89,58 @@ export default function BasketballRosterTable({
       </table>
     </div>
   );
+}
+
+export default function BasketballRosterTable({
+  players,
+  sportCode,
+  finalRosterIds,
+}: {
+  players: Player[];
+  sportCode: string;
+  finalRosterIds?: string[];
+}) {
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+
+  const sort = (list: Player[]) => {
+    if (!sortKey) return list;
+    return [...list].sort((a, b) => {
+      const av = (a.stats as Record<string, unknown>)[sortKey];
+      const bv = (b.stats as Record<string, unknown>)[sortKey];
+      const an = typeof av === "number" ? av : -Infinity;
+      const bn = typeof bv === "number" ? bv : -Infinity;
+      return bn - an; // 내림차순
+    });
+  };
+
+  const sorted = useMemo(() => sort(players), [players, sortKey]);
+
+  // When a game-day final roster is set (e.g. Lebanon's 24-man extended pool vs
+  // their 12-man roster for a specific match), split the table instead of
+  // dumping everyone into one undifferentiated list.
+  if (finalRosterIds && finalRosterIds.length > 0) {
+    const finalSet = new Set(finalRosterIds);
+    const final = sorted.filter((p) => finalSet.has(p.id));
+    const rest = sorted.filter((p) => !finalSet.has(p.id));
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="mb-2 text-sm font-medium text-neutral-600 dark:text-neutral-300">
+            최종 로스터 ({final.length})
+          </h3>
+          <RosterTable players={final} sportCode={sportCode} sortKey={sortKey} setSortKey={setSortKey} />
+        </div>
+        {rest.length > 0 && (
+          <div>
+            <h3 className="mb-2 text-sm font-medium text-neutral-600 dark:text-neutral-300">
+              기타 소집 선수 ({rest.length})
+            </h3>
+            <RosterTable players={rest} sportCode={sportCode} sortKey={sortKey} setSortKey={setSortKey} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return <RosterTable players={sorted} sportCode={sportCode} sortKey={sortKey} setSortKey={setSortKey} />;
 }
