@@ -305,20 +305,19 @@ function BatterCard({ b }: { b: BatterInfo }) {
           </Card>
         </div>
       )}
-      {(b.matchupHistory || b.series) && (
+      {b.matchupHistory && (
         <div className="mb-2">
-          <Card
-            label={`투수 상대 전적${
-              b.series ? (b.series.isPrevious ? ` · 직전 시리즈(vs ${b.series.opponentName})` : " · 이번 시리즈") : ""
-            }`}
-          >
-            {b.matchupHistory
-              ? b.matchupHistory.career
-                ? `${b.matchupHistory.career.hits}-${b.matchupHistory.career.ab}, ${b.matchupHistory.career.avg} ${b.matchupHistory.career.hr}홈런 ${b.matchupHistory.career.bb}볼넷 ${b.matchupHistory.career.so}삼진`
-                : "0-0 (첫 상대)"
-              : null}
-            {b.matchupHistory && b.series ? " | " : ""}
-            {b.series ? formatSeriesLine(b.series) : ""}
+          <Card label="투수 상대 전적">
+            {b.matchupHistory.career
+              ? `${b.matchupHistory.career.hits}-${b.matchupHistory.career.ab}, ${b.matchupHistory.career.avg} ${b.matchupHistory.career.hr}홈런 ${b.matchupHistory.career.bb}볼넷 ${b.matchupHistory.career.so}삼진`
+              : "0-0 (첫 상대)"}
+          </Card>
+        </div>
+      )}
+      {b.series && (
+        <div className="mb-2">
+          <Card label={b.series.isPrevious ? `직전 시리즈(vs ${b.series.opponentName})` : "이번 시리즈"}>
+            {formatSeriesLine(b.series)}
           </Card>
         </div>
       )}
@@ -373,17 +372,13 @@ function BatterCard({ b }: { b: BatterInfo }) {
           ))}
         </div>
       )}
-      {b.handSplits.length > 0 && (
-        <div className="mb-2 grid grid-cols-2 gap-2">
+      {(b.handSplits.length > 0 || b.homeAwaySplit) && (
+        <div className="mb-2 grid grid-cols-4 gap-2">
           {b.handSplits.map((c) => (
             <Card key={c.label} label={c.label}>{c.avg}</Card>
           ))}
-        </div>
-      )}
-      {b.homeAwaySplit && (b.homeAwaySplit.home || b.homeAwaySplit.away) && (
-        <div className="mb-2 grid grid-cols-2 gap-2">
-          {b.homeAwaySplit.home && <Card label="홈">{b.homeAwaySplit.home.avg} {b.homeAwaySplit.home.hr}홈런</Card>}
-          {b.homeAwaySplit.away && <Card label="원정">{b.homeAwaySplit.away.avg} {b.homeAwaySplit.away.hr}홈런</Card>}
+          {b.homeAwaySplit?.home && <Card label="홈">{b.homeAwaySplit.home.avg} {b.homeAwaySplit.home.hr}홈런</Card>}
+          {b.homeAwaySplit?.away && <Card label="원정">{b.homeAwaySplit.away.avg} {b.homeAwaySplit.away.hr}홈런</Card>}
         </div>
       )}
       {b.pinchHitSplit && (
