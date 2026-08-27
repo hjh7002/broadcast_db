@@ -3,11 +3,16 @@ import { notFound } from "next/navigation";
 import { getSportByCode, getTeam, getRoster } from "@/lib/data";
 import type { Player } from "@/lib/supabase/types";
 import { mlbTeamIdForName } from "@/lib/mlbTeams";
+import { formatUpdatedAt } from "@/lib/dataFreshness";
 import { getCoachingStaff, getInjuredList, type CoachEntry, type InjuredPlayer } from "@/lib/teamRoster";
 import BasketballRosterTable from "@/components/BasketballRosterTable";
 import BasketballSchedule, { type ScheduleGame } from "@/components/BasketballSchedule";
 import TeamMemoEditor from "@/components/TeamMemoEditor";
 import TeamNewsSection, { type TeamNewsItem } from "@/components/TeamNewsSection";
+import TeamRosterMoves, { type RosterMoves } from "@/components/TeamRosterMoves";
+import TeamSeasonTrend, { type SeasonRecord } from "@/components/TeamSeasonTrend";
+import TeamFranchiseHistory, { type FranchiseHistory } from "@/components/TeamFranchiseHistory";
+import TeamScheduleIntensity, { type ScheduleIntensity } from "@/components/TeamScheduleIntensity";
 
 export const dynamic = "force-dynamic";
 
@@ -44,11 +49,13 @@ function BaseballRosterTable({ players, sportCode }: { players: Player[]; sportC
             <th className="px-3 py-2 font-medium">투타유형</th>
             <th className="px-3 py-2 font-medium">출신학교</th>
             <th className="px-3 py-2 font-medium">드래프트 정보</th>
+            <th className="px-3 py-2 font-medium">스탯 갱신</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-200 text-neutral-800 dark:divide-neutral-800 dark:text-neutral-200">
           {players.map((player) => {
             const bio = player.bio as Record<string, unknown>;
+            const updated = formatUpdatedAt(player.updated_at);
             return (
               <tr key={player.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900">
                 <td className="px-3 py-2 text-left text-neutral-500 dark:text-neutral-400">
@@ -65,6 +72,11 @@ function BaseballRosterTable({ players, sportCode }: { players: Player[]; sportC
                 <td className="px-3 py-2 text-left">{bioField(bio, "throws_bats")}</td>
                 <td className="px-3 py-2 text-left">{bioField(bio, "school")}</td>
                 <td className="px-3 py-2 text-left">{bioField(bio, "draft_info")}</td>
+                <td
+                  className={`px-3 py-2 text-left ${updated.stale ? "font-medium text-red-600 dark:text-red-400" : "text-neutral-500 dark:text-neutral-400"}`}
+                >
+                  {updated.text}
+                </td>
               </tr>
             );
           })}
@@ -117,7 +129,7 @@ function CoachingStaffList({ staff }: { staff: CoachEntry[] }) {
   return (
     <div className="mb-6 grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
       {staff.map((c) => (
-        <div key={c.role} className="flex items-center justify-between border-b border-neutral-100 py-1.5 text-sm dark:border-neutral-900">
+        <div key={`${c.role}-${c.name}`} className="flex items-center justify-between border-b border-neutral-100 py-1.5 text-sm dark:border-neutral-900">
           <span className="text-neutral-500 dark:text-neutral-400">{c.role}</span>
           <span className="font-medium text-neutral-900 dark:text-neutral-100">
             {c.name}
@@ -265,6 +277,14 @@ export default async function TeamPage({
       )}
 
       <BasketballSchedule games={(team.extra as Record<string, unknown>).schedule as ScheduleGame[] | undefined} />
+
+      <TeamSeasonTrend seasons={(team.extra as Record<string, unknown>).season_trend as SeasonRecord[] | undefined} />
+
+      <TeamFranchiseHistory history={(team.extra as Record<string, unknown>).franchise_history as FranchiseHistory | undefined} />
+
+      <TeamScheduleIntensity data={(team.extra as Record<string, unknown>).schedule_intensity as ScheduleIntensity | undefined} />
+
+      <TeamRosterMoves moves={(team.extra as Record<string, unknown>).roster_moves as RosterMoves | undefined} />
 
       <InjuredListSection players={injuredList} />
     </div>

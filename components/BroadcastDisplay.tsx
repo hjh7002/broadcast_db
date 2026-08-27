@@ -4,6 +4,7 @@ import EndBroadcastButton from "@/components/EndBroadcastButton";
 import TeamNoteEditor from "@/components/TeamNoteEditor";
 import LiveMatchupPanel, { type PreviewRosterOption } from "@/components/LiveMatchupPanel";
 import type { LeaderBadge } from "@/lib/leaders";
+import { formatUpdatedAt } from "@/lib/dataFreshness";
 import BasketballBroadcastRoster from "@/components/BasketballBroadcastRoster";
 
 // MLB/KBO get the pitcher/batter lineup treatment below; every other sport
@@ -86,6 +87,7 @@ function RosterList({
         const streak = showStreak ? streakBadge(p) : null;
         const personId = mlbPersonId(p);
         const ranks = personId != null ? leaderBadges?.get(personId) : undefined;
+        const updated = formatUpdatedAt(p.updated_at);
         return (
           <li key={p.id}>
             <Link
@@ -105,8 +107,14 @@ function RosterList({
                   </span>
                 ))}
               </span>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400">
+              <span className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
                 {p.position ?? ""} {p.jersey_number != null ? `#${p.jersey_number}` : ""}
+                <span
+                  title="스탯 갱신일"
+                  className={updated.stale ? "font-medium text-red-600 dark:text-red-400" : ""}
+                >
+                  {updated.text}
+                </span>
               </span>
             </Link>
           </li>
@@ -276,7 +284,7 @@ function TeamColumn({
       {/* 예습("내일의 중계") 모드는 broadcastId가 없는 임시 화면이라 저장할 곳이 없는 메모는 생략 */}
       {broadcastId && (
         <div className={isBaseball ? "flex-[3] min-h-0" : "shrink-0"}>
-          <TeamNoteEditor broadcastId={broadcastId} side={side} initialNote={note ?? ""} />
+          <TeamNoteEditor broadcastId={broadcastId} side={side} initialNote={note ?? ""} fillHeight={isBaseball} />
         </div>
       )}
 

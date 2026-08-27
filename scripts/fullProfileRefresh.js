@@ -41,9 +41,10 @@ async function main() {
           continue;
         }
         const mergedBio = { ...(p.bio || {}), ...data.bio };
+        const updated_at = new Date().toISOString();
         const patch = isPitcher
-          ? await supaPatchP(`/rest/v1/players?id=eq.${p.id}`, { bio: mergedBio, stats: data.stats })
-          : await supaPatchH(`/rest/v1/players?id=eq.${p.id}`, { bio: mergedBio, stats: data.stats });
+          ? await supaPatchP(`/rest/v1/players?id=eq.${p.id}`, { bio: mergedBio, stats: data.stats, updated_at })
+          : await supaPatchH(`/rest/v1/players?id=eq.${p.id}`, { bio: mergedBio, stats: data.stats, updated_at });
         console.log(`OK ${isPitcher ? 'P' : 'H'} ${team.name} ${p.name} (${personId}) -> ${patch.status}`);
         ok += 1;
       } catch (e) {

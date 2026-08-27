@@ -207,7 +207,10 @@ function getTodayH2H(feed: any, pitcherId: number, batterId: number) {
 // subtracted per split bucket, keeping splits frozen at their pre-game value too.
 function getTodaySplitDeltas(feed: any, personId: number, group: "hitting" | "pitching") {
   const allPlays = feed?.liveData?.plays?.allPlays || [];
-  const hand: Record<string, { ab: number; hits: number }> = { vl: { ab: 0, hits: 0 }, vr: { ab: 0, hits: 0 } };
+  const hand: Record<string, { ab: number; hits: number; hr: number }> = {
+    vl: { ab: 0, hits: 0, hr: 0 },
+    vr: { ab: 0, hits: 0, hr: 0 },
+  };
   const runner: Record<string, { ab: number; hits: number }> = {
     r0: { ab: 0, hits: 0 }, ron: { ab: 0, hits: 0 }, risp: { ab: 0, hits: 0 }, risp2: { ab: 0, hits: 0 },
   };
@@ -236,7 +239,11 @@ function getTodaySplitDeltas(feed: any, personId: number, group: "hitting" | "pi
 
     const handCode = isPitcher ? p.matchup?.batSide?.code : p.matchup?.pitchHand?.code;
     const handBucket = handCode === "L" ? "vl" : handCode === "R" ? "vr" : null;
-    if (handBucket) { hand[handBucket].ab += 1; if (isHit) hand[handBucket].hits += 1; }
+    if (handBucket) {
+      hand[handBucket].ab += 1;
+      if (isHit) hand[handBucket].hits += 1;
+      if (et === "home_run") hand[handBucket].hr += 1;
+    }
 
     const menOnBase = p.matchup?.splits?.menOnBase;
     const runnerBuckets: string[] = [];
@@ -415,18 +422,19 @@ function nearSeasonHighFacts(
 async function getHandednessSplits(
   personId: number,
   group: "hitting" | "pitching",
-  todayHandDelta?: Record<string, { ab: number; hits: number }>,
+  todayHandDelta?: Record<string, { ab: number; hits: number; hr: number }>,
 ) {
   const d = await mlbGet(
     `https://statsapi.mlb.com/api/v1/people/${personId}/stats?stats=statSplits&group=${group}&sitCodes=vl,vr&season=2026`,
   );
   const splits = d.stats?.[0]?.splits || [];
-  const byCode: Record<string, { hits: number; ab: number }> = {};
+  const byCode: Record<string, { hits: number; ab: number; hr: number }> = {};
   for (const s of splits) {
     const code = s.split.code;
-    if (!byCode[code]) byCode[code] = { hits: 0, ab: 0 };
+    if (!byCode[code]) byCode[code] = { hits: 0, ab: 0, hr: 0 };
     byCode[code].hits += s.stat.hits || 0;
     byCode[code].ab += s.stat.atBats || 0;
+    byCode[code].hr += s.stat.homeRuns || 0;
   }
   if (todayHandDelta) {
     for (const code of Object.keys(byCode)) {
@@ -434,6 +442,7 @@ async function getHandednessSplits(
       if (!delta) continue;
       byCode[code].ab = Math.max(0, byCode[code].ab - delta.ab);
       byCode[code].hits = Math.max(0, byCode[code].hits - delta.hits);
+      byCode[code].hr = Math.max(0, byCode[code].hr - delta.hr);
     }
   }
   // pitching group: "vs Left"/"vs Right" describes the opposing BATTER's hand.
@@ -441,7 +450,9 @@ async function getHandednessSplits(
   const label: Record<string, string> =
     group === "pitching" ? { vl: "좌타자 상대", vr: "우타자 상대" } : { vl: "좌투수 상대", vr: "우투수 상대" };
   const order = ["vl", "vr"];
-  return order.filter((code) => byCode[code]).map((code) => ({ label: label[code], avg: avgFrom(byCode[code].hits, byCode[code].ab) }));
+  return order
+    .filter((code) => byCode[code])
+    .map((code) => ({ label: label[code], avg: avgFrom(byCode[code].hits, byCode[code].ab), hr: byCode[code].hr }));
 }
 
 // Season-to-date, not adjusted for today's game (unlike most stats here) — a batter's
@@ -774,17 +785,22 @@ async function getBatterPitchCategoryAvg(batterId: number) {
   if (!m) return null;
   const arr = JSON.parse(m[1]) as any[];
   const y2026 = arr.filter((p) => p.year === 2026);
-  const buckets = { 패스트볼: { hits: 0, ab: 0 }, 브레이킹볼: { hits: 0, ab: 0 }, 오프스피드: { hits: 0, ab: 0 } };
+  const buckets = {
+    패스트볼: { hits: 0, ab: 0, hr: 0 },
+    브레이킹볼: { hits: 0, ab: 0, hr: 0 },
+    오프스피드: { hits: 0, ab: 0, hr: 0 },
+  };
   for (const p of y2026) {
     const hits = parseInt(p.hits, 10) || 0;
     const ab = parseInt(p.ab, 10) || 0;
-    if (FASTBALL.has(p.api_pitch_type)) { buckets.패스트볼.hits += hits; buckets.패스트볼.ab += ab; }
-    else if (BREAKING.has(p.api_pitch_type)) { buckets.브레이킹볼.hits += hits; buckets.브레이킹볼.ab += ab; }
-    else if (OFFSPEED.has(p.api_pitch_type)) { buckets.오프스피드.hits += hits; buckets.오프스피드.ab += ab; }
+    const hr = parseInt(p.hr, 10) || 0;
+    if (FASTBALL.has(p.api_pitch_type)) { buckets.패스트볼.hits += hits; buckets.패스트볼.ab += ab; buckets.패스트볼.hr += hr; }
+    else if (BREAKING.has(p.api_pitch_type)) { buckets.브레이킹볼.hits += hits; buckets.브레이킹볼.ab += ab; buckets.브레이킹볼.hr += hr; }
+    else if (OFFSPEED.has(p.api_pitch_type)) { buckets.오프스피드.hits += hits; buckets.오프스피드.ab += ab; buckets.오프스피드.hr += hr; }
   }
   return Object.entries(buckets)
     .filter(([, v]) => v.ab > 0)
-    .map(([label, v]) => ({ label, avg: avgFrom(v.hits, v.ab) }));
+    .map(([label, v]) => ({ label, avg: avgFrom(v.hits, v.ab), hr: v.hr }));
 }
 
 async function getPitcherPitchMix(pitcherId: number) {

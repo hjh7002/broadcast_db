@@ -34,7 +34,7 @@ type PitcherInfo = {
   id: number;
   name: string;
   side: "home" | "away";
-  handSplits: { label: string; avg: string }[];
+  handSplits: { label: string; avg: string; hr: number }[];
   curated: CuratedContent;
   seasonHighs: SeasonHighs;
   vsOpponentTeam: { career: PitcherVsTeamLine; season: PitcherVsTeamLine } | null;
@@ -74,13 +74,13 @@ type BatterInfo = {
     ops: string;
   } | null;
   onBaseStreak: { games: number; ab: number; hits: number; bb: number; hbp: number; avg: string } | null;
-  pitchCategoryAvg: { label: string; avg: string }[] | null;
+  pitchCategoryAvg: { label: string; avg: string; hr: number }[] | null;
   curated: CuratedContent;
   vsOpponentTeam: { career: BatterVsTeamLine; season: BatterVsTeamLine } | null;
   opponentTeamName: string;
   affiliations: Affiliations;
   notableFacts: string[];
-  handSplits: { label: string; avg: string }[];
+  handSplits: { label: string; avg: string; hr: number }[];
   homeAwaySplit: { home: { avg: string; hr: number } | null; away: { avg: string; hr: number } | null } | null;
   pinchHitSplit: { ab: number; hits: number; avg: string; hr: number } | null;
   runnerSplits: RunnerSplitLine[];
@@ -305,20 +305,20 @@ function BatterCard({ b }: { b: BatterInfo }) {
           </Card>
         </div>
       )}
-      {b.matchupHistory && (
-        <div className="mb-2">
-          <Card label="투수 상대 전적">
-            {b.matchupHistory.career
-              ? `${b.matchupHistory.career.hits}-${b.matchupHistory.career.ab}, ${b.matchupHistory.career.avg} ${b.matchupHistory.career.hr}홈런 ${b.matchupHistory.career.bb}볼넷 ${b.matchupHistory.career.so}삼진`
-              : "0-0 (첫 상대)"}
-          </Card>
-        </div>
-      )}
-      {b.series && (
-        <div className="mb-2">
-          <Card label={b.series.isPrevious ? `직전 시리즈(vs ${b.series.opponentName})` : "이번 시리즈"}>
-            {formatSeriesLine(b.series)}
-          </Card>
+      {(b.matchupHistory || b.series) && (
+        <div className="mb-2 grid grid-cols-2 gap-2">
+          {b.matchupHistory && (
+            <Card label="투수 상대 전적">
+              {b.matchupHistory.career
+                ? `${b.matchupHistory.career.hits}-${b.matchupHistory.career.ab}, ${b.matchupHistory.career.avg} ${b.matchupHistory.career.hr}홈런 ${b.matchupHistory.career.bb}볼넷 ${b.matchupHistory.career.so}삼진`
+                : "0-0 (첫 상대)"}
+            </Card>
+          )}
+          {b.series && (
+            <Card label={b.series.isPrevious ? `직전 시리즈(vs ${b.series.opponentName})` : "이번 시리즈"}>
+              {formatSeriesLine(b.series)}
+            </Card>
+          )}
         </div>
       )}
       {b.streak && (
@@ -375,7 +375,7 @@ function BatterCard({ b }: { b: BatterInfo }) {
       {(b.handSplits.length > 0 || b.homeAwaySplit) && (
         <div className="mb-2 grid grid-cols-4 gap-2">
           {b.handSplits.map((c) => (
-            <Card key={c.label} label={c.label}>{c.avg}</Card>
+            <Card key={c.label} label={c.label}>{c.avg} {c.hr}홈런</Card>
           ))}
           {b.homeAwaySplit?.home && <Card label="홈">{b.homeAwaySplit.home.avg} {b.homeAwaySplit.home.hr}홈런</Card>}
           {b.homeAwaySplit?.away && <Card label="원정">{b.homeAwaySplit.away.avg} {b.homeAwaySplit.away.hr}홈런</Card>}
@@ -409,7 +409,7 @@ function BatterCard({ b }: { b: BatterInfo }) {
       {b.pitchCategoryAvg && b.pitchCategoryAvg.length > 0 && (
         <div className="mb-2 grid grid-cols-3 gap-2">
           {b.pitchCategoryAvg.map((c) => (
-            <Card key={c.label} label={`${c.label} 타율`}>{c.avg}</Card>
+            <Card key={c.label} label={`${c.label} 타율`}>{c.avg} {c.hr}홈런</Card>
           ))}
         </div>
       )}

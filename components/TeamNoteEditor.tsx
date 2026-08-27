@@ -10,10 +10,16 @@ export default function TeamNoteEditor({
   broadcastId,
   side,
   initialNote,
+  fillHeight,
 }: {
   broadcastId: string;
   side: "home" | "away";
   initialNote: string;
+  // Baseball's memo area is already sized by the parent (flex-[3] of a fixed-height
+  // card) — stretching the textarea to fill that with CSS means it's always at the
+  // biggest size the layout allows, with nothing to reset on reload. The drag handle
+  // below is for contexts (basketball) where the parent doesn't pre-allocate space.
+  fillHeight?: boolean;
 }) {
   const [value, setValue] = useState(initialNote);
   const [saving, setSaving] = useState(false);
@@ -59,6 +65,23 @@ export default function TeamNoteEditor({
     dragRef.current = { startY: e.clientY, startHeight: height };
     window.addEventListener("mousemove", onDragMove);
     window.addEventListener("mouseup", onDragEnd);
+  }
+
+  if (fillHeight) {
+    return (
+      <div className="flex h-full flex-col border-t border-neutral-200 p-3 dark:border-neutral-800">
+        <textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={save}
+          placeholder="메모를 입력하세요..."
+          className="w-full min-h-0 flex-1 resize-none rounded-md border border-neutral-300 bg-white p-3 text-sm text-neutral-900 outline-none focus:border-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-400"
+        />
+        <div className="mt-1 h-4 shrink-0 text-right text-xs text-neutral-400 dark:text-neutral-500">
+          {saving ? "저장 중..." : savedAt ? "저장됨" : ""}
+        </div>
+      </div>
+    );
   }
 
   return (

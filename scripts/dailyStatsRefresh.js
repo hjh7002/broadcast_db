@@ -38,9 +38,10 @@ async function main() {
           skip += 1;
           continue;
         }
+        const updated_at = new Date().toISOString();
         const patch = isPitcher
-          ? await supaPatchP(`/rest/v1/players?id=eq.${p.id}`, { stats: data.stats })
-          : await supaPatchH(`/rest/v1/players?id=eq.${p.id}`, { stats: data.stats });
+          ? await supaPatchP(`/rest/v1/players?id=eq.${p.id}`, { stats: data.stats, updated_at })
+          : await supaPatchH(`/rest/v1/players?id=eq.${p.id}`, { stats: data.stats, updated_at });
         console.log(`OK ${isPitcher ? 'P' : 'H'} ${team.name} ${p.name} (${personId}) -> ${patch.status}`);
         ok += 1;
       } catch (e) {
