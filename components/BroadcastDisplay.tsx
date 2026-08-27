@@ -117,35 +117,37 @@ function RosterList({
 }
 
 function groupByLineup(roster: Player[], lineup: TeamLineupInfo | null | undefined) {
-  const pitchers = roster.filter(isPitcher);
-  const nonPitchers = roster.filter((p) => !isPitcher(p));
-
   if (!lineup || lineup.startingBatterIds.length === 0) {
     return {
       startingBatters: [] as Player[],
-      benchBatters: nonPitchers,
+      benchBatters: roster.filter((p) => !isPitcher(p)),
       startingPitcher: null as Player | null,
-      benchPitchers: pitchers,
+      benchPitchers: roster.filter(isPitcher),
       orderMap: new Map<string, number>(),
     };
   }
 
+  // Search the FULL roster (not pre-split by position) for both starting batters and the
+  // starting pitcher, so a two-way player (e.g. Ohtani) can show up as both a starting
+  // batter AND the starting pitcher on a day he does both — one `players` row, two roles.
   const orderMap = new Map<string, number>();
   const startingBatters: Player[] = [];
   lineup.startingBatterIds.forEach((personId, idx) => {
-    const player = nonPitchers.find((p) => mlbPersonId(p) === personId);
+    const player = roster.find((p) => mlbPersonId(p) === personId);
     if (player) {
       startingBatters.push(player);
       orderMap.set(player.id, idx + 1);
     }
   });
-  const startingIds = new Set(startingBatters.map((p) => p.id));
-  const benchBatters = nonPitchers.filter((p) => !startingIds.has(p.id));
 
   const startingPitcher = lineup.startingPitcherId
-    ? pitchers.find((p) => mlbPersonId(p) === lineup.startingPitcherId) ?? null
+    ? roster.find((p) => mlbPersonId(p) === lineup.startingPitcherId) ?? null
     : null;
-  const benchPitchers = pitchers.filter((p) => p.id !== startingPitcher?.id);
+
+  const startingBatterIds = new Set(startingBatters.map((p) => p.id));
+  const remaining = roster.filter((p) => !startingBatterIds.has(p.id) && p.id !== startingPitcher?.id);
+  const benchBatters = remaining.filter((p) => !isPitcher(p));
+  const benchPitchers = remaining.filter(isPitcher);
 
   return { startingBatters, benchBatters, startingPitcher, benchPitchers, orderMap };
 }
