@@ -28,9 +28,14 @@ export default function PlayerStatSummary({
             <p className="whitespace-nowrap text-base font-semibold text-neutral-900 dark:text-neutral-100">
               {(() => {
                 const v = stats[field.stat_key];
-                return decimals != null && typeof v === "number" ? v.toFixed(decimals) : String(v);
+                if (typeof v !== "number") return String(v);
+                // GP is a count, never averaged, so it never takes decimals even
+                // when every other stat in this row does.
+                if (field.stat_key === "GP") return String(v);
+                const formatted = decimals != null ? v.toFixed(decimals) : String(v);
+                return field.stat_key === "PM" && v > 0 ? `+${formatted}` : formatted;
               })()}
-              {rank != null && <span className="ml-1 text-xs font-normal text-amber-600 dark:text-amber-400">{rank}위</span>}
+              {rank != null && <span className="ml-1 text-xs font-normal text-amber-600 dark:text-amber-400">({rank}위)</span>}
             </p>
           </div>
         );
