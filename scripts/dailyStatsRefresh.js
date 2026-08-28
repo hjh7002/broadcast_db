@@ -29,6 +29,25 @@ async function withRetry(fn, retries = 2, delayMs = 3000) {
   throw lastErr;
 }
 
+// `PATCH {stats: ...}` replaces the whole jsonb column, not just the keys given — so a
+// naive overwrite here silently erases every field the (weekly, slower) full refresh
+// computes that light mode skips, e.g. singleGameHighs.career or a hitter's
+// career.errors. Deep-merging keeps light mode's fresh numbers for anything it DID
+// recompute while preserving full-only fields it left out. Arrays (gameLog, etc.) are
+// replaced outright rather than merged — a stale entry from an old array has no home
+// to merge into.
+function isPlainObject(v) { return v && typeof v === 'object' && !Array.isArray(v); }
+function deepMergeStats(oldVal, newVal) {
+  if (newVal === undefined) return oldVal;
+  if (oldVal === undefined) return newVal;
+  if (isPlainObject(oldVal) && isPlainObject(newVal)) {
+    const merged = { ...oldVal };
+    for (const k of Object.keys(newVal)) merged[k] = deepMergeStats(oldVal[k], newVal[k]);
+    return merged;
+  }
+  return newVal;
+}
+
 async function main() {
   const teams = await supaGet(`/rest/v1/teams?select=id,name,short_name&sport_id=eq.${MLB_SPORT_ID}`);
   let ok = 0, fail = 0, skip = 0;
@@ -39,7 +58,7 @@ async function main() {
 
     let players;
     try {
-      players = await withRetry(() => supaGet(`/rest/v1/players?select=id,name,position,bio&team_id=eq.${team.id}`));
+      players = await withRetry(() => supaGet(`/rest/v1/players?select=id,name,position,bio,stats&team_id=eq.${team.id}`));
     } catch (e) {
       console.log(`SKIP TEAM (roster fetch failed after retry) ${team.name} -> ${e.message}`);
       fail += 1;
@@ -60,10 +79,11 @@ async function main() {
           skip += 1;
           continue;
         }
+        const mergedStats = deepMergeStats(p.stats, data.stats);
         const updated_at = new Date().toISOString();
         const patch = isPitcher
-          ? await supaPatchP(`/rest/v1/players?id=eq.${p.id}`, { stats: data.stats, updated_at })
-          : await supaPatchH(`/rest/v1/players?id=eq.${p.id}`, { stats: data.stats, updated_at });
+          ? await supaPatchP(`/rest/v1/players?id=eq.${p.id}`, { stats: mergedStats, updated_at })
+          : await supaPatchH(`/rest/v1/players?id=eq.${p.id}`, { stats: mergedStats, updated_at });
         console.log(`OK ${isPitcher ? 'P' : 'H'} ${team.name} ${p.name} (${personId}) -> ${patch.status}`);
         ok += 1;
       } catch (e) {
