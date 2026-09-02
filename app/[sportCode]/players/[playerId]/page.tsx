@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getSportByCode, getPlayer, getStatFields, getTeam } from "@/lib/data";
+import { getSportByCode, getPlayer, getStatFields, getTeam, getPlayerContent } from "@/lib/data";
+import PlayerContentList from "@/components/PlayerContentList";
 import PlayerEditForm from "@/components/PlayerEditForm";
 import PlayerTabs from "@/components/PlayerTabs";
 import PlayerHeader from "@/components/PlayerHeader";
@@ -21,9 +22,23 @@ import PlayerHittingSingleGameHighs, { type HittingHighLine } from "@/components
 import PlayerHittingSplits, { type HittingSplitsInfo, type HittingStreak } from "@/components/PlayerHittingSplits";
 import BasketballGameLog, { type BasketballGameRow } from "@/components/BasketballGameLog";
 import BasketballSplits, { type BasketballSplitsData } from "@/components/BasketballSplits";
+import PlayerStreaks, { type Streak } from "@/components/PlayerStreaks";
 import PlayerMemoEditor from "@/components/PlayerMemoEditor";
 
 export const dynamic = "force-dynamic";
+
+// Which stat_fields matter most for a given position, so the Summary row can
+// call them out — e.g. a middle blocker's blocking numbers, not their (mostly
+// irrelevant) reception numbers. Keyed by the Korean position label as stored
+// on `players.position` (volleyball's convention; sports that use different
+// position labels just get no highlight, which is a no-op, not a bug).
+const POSITION_STAT_HIGHLIGHTS: Record<string, string[]> = {
+  "아웃사이드 히터": ["PTS", "ATT_PCT", "SERVE"],
+  "아포짓 스파이커": ["PTS", "ATT_PCT", "SERVE"],
+  "미들 블로커": ["BLOCK", "ATT_PCT"],
+  "리베로": ["DIG", "RECEIVE_PCT"],
+  "세터": ["SET"],
+};
 
 export default async function PlayerPage({
   params,
@@ -36,9 +51,10 @@ export default async function PlayerPage({
   const player = await getPlayer(playerId);
   if (!player || player.sport_id !== sport.id) notFound();
 
-  const [statFields, team] = await Promise.all([
+  const [statFields, team, playerContent] = await Promise.all([
     getStatFields(sport.id),
     player.team_id ? getTeam(player.team_id) : Promise.resolve(null),
+    getPlayerContent(player.id),
   ]);
 
   const stats = (player.stats as Record<string, unknown>) ?? {};
@@ -48,6 +64,11 @@ export default async function PlayerPage({
   // everything else (NBA, 농구 국가대표, ...) just gets the generic stat-field summary,
   // since sport_stat_fields already defines what to show without any baseball assumptions.
   const isBaseball = sport.code === "mlb" || sport.code === "kbo";
+  // National-team basketball (men's/women's) shares the 대표팀/소속팀 split and skips
+  // the NBA-only advanced SPLITS block — keyed off a prefix so a new "bball_nt_w"
+  // (or any future bball_nt_*) sport doesn't need this list touched again.
+  const isBasketballNationalTeam = sport.code.startsWith("bball_nt");
+  const statHighlightKeys = player.position ? POSITION_STAT_HIGHLIGHTS[player.position] : undefined;
   const teamSplits = stats.teamSplits as ({ team: string } & Record<string, unknown>)[] | undefined;
   const memoEditor = <PlayerMemoEditor playerId={player.id} initialMemo={(bio.memo as string | null) ?? ""} />;
 
@@ -181,7 +202,7 @@ export default async function PlayerPage({
       />
 
       <div className="mb-4">
-        <PlayerEditForm player={player} />
+        <PlayerEditForm player={player} isBaseball={isBaseball} />
       </div>
     </>
   );
@@ -192,9 +213,10 @@ export default async function PlayerPage({
     return (
       <div>
         {header}
+        <PlayerStreaks streaks={stats.STREAKS as Streak[] | undefined} />
         <p className="mb-4 text-base font-semibold">Summary</p>
-        <PlayerStatSummary statFields={statFields} stats={stats} decimals={1} />
-        {sport.code === "bball_nt" ? (
+        <PlayerStatSummary statFields={statFields} stats={stats} decimals={1} highlightKeys={statHighlightKeys} />
+        {isBasketballNationalTeam ? (
           <>
             <PlayerCareerByYear
               statFields={statFields}
@@ -223,11 +245,12 @@ export default async function PlayerPage({
         <div className="mt-8">
           <BasketballGameLog games={stats.GAME_LOG as BasketballGameRow[] | undefined} />
         </div>
-        {sport.code !== "bball_nt" && (
+        {!isBasketballNationalTeam && (
           <div className="mt-8">
             <BasketballSplits splits={stats.SPLITS as BasketballSplitsData | undefined} />
           </div>
         )}
+        <PlayerContentList content={playerContent} />
         <PlayerMemoEditor playerId={player.id} initialMemo={(bio.memo as string | null) ?? ""} />
       </div>
     );

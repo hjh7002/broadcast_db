@@ -33,18 +33,13 @@ export type BasketballGameRow = {
   EFF: number;
 };
 
-// Single-game box score counting stats (MIN/PTS/REB/...) are whole numbers,
-// so no decimal formatting — only shooting percentages get 1 decimal place.
+// Single-game box score counting stats (MIN/PTS/REB/...) are whole numbers.
 function n0(v: number | null | undefined) {
   return typeof v === "number" ? String(v) : "-";
 }
-function pct1(v: number | null | undefined) {
-  return typeof v === "number" ? v.toFixed(1) : "-";
-}
 
-function shot(made: number, att: number, pct: number | null) {
-  if (att === 0) return "0/0";
-  return `${made}/${att} (${pct1(pct)}%)`;
+function shot(made: number, att: number) {
+  return `${made}/${att}`;
 }
 
 type SortDir = "desc" | "asc";
@@ -160,10 +155,10 @@ export default function BasketballGameLog({ games }: { games: BasketballGameRow[
                   </td>
                   <td className="px-3 py-2">{n0(g.MIN)}</td>
                   <td className="px-3 py-2 font-medium text-neutral-900 dark:text-neutral-100">{n0(g.PTS)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{shot(g.FGM, g.FGA, g.FGP)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{shot(g.P2M, g.P2A, g.P2P)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{shot(g.P3M, g.P3A, g.P3P)}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{shot(g.FTM, g.FTA, g.FTP)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{shot(g.FGM, g.FGA)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{shot(g.P2M, g.P2A)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{shot(g.P3M, g.P3A)}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">{shot(g.FTM, g.FTA)}</td>
                   <td className="px-3 py-2">{n0(g.OREB)}</td>
                   <td className="px-3 py-2">{n0(g.DREB)}</td>
                   <td className="px-3 py-2">{n0(g.REB)}</td>

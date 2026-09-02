@@ -188,6 +188,12 @@ const CODE_BY_NAME_FRAGMENT: Record<string, string> = {
   일본: "JPN",
   중국: "CHN",
   카타르: "QAT",
+  프랑스: "FRA",
+  나이지리아: "NGR",
+  독일: "GER",
+  콜롬비아: "COL",
+  필리핀: "PHI",
+  헝가리: "HUN",
 };
 
 function teamCode(team: Team): string | null {

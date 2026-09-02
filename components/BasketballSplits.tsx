@@ -15,11 +15,15 @@ export type SplitRow = {
   FG_PCT: number | null;
   FG3_PCT: number | null;
   FT_PCT: number | null;
+  PM?: number | null;
 };
 
 export type BasketballSplitsData = {
   home_road?: SplitRow[];
   result?: SplitRow[];
+  pre_post_allstar?: SplitRow[];
+  month?: SplitRow[];
+  days_rest?: SplitRow[];
   vs_opponent?: SplitRow[];
 };
 
@@ -44,6 +48,7 @@ function SplitTable({ rows, showRecord }: { rows: SplitRow[]; showRecord?: boole
             <th className="px-3 py-2 font-medium">야투%</th>
             <th className="px-3 py-2 font-medium">3점%</th>
             <th className="px-3 py-2 font-medium">자유투%</th>
+            <th className="px-3 py-2 font-medium">+/-</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-neutral-200 text-neutral-800 dark:divide-neutral-800 dark:text-neutral-200">
@@ -60,6 +65,7 @@ function SplitTable({ rows, showRecord }: { rows: SplitRow[]; showRecord?: boole
               <td className="px-3 py-2">{n1(r.FG_PCT)}</td>
               <td className="px-3 py-2">{n1(r.FG3_PCT)}</td>
               <td className="px-3 py-2">{n1(r.FT_PCT)}</td>
+              <td className="px-3 py-2">{r.PM == null ? "-" : r.PM > 0 ? `+${r.PM.toFixed(1)}` : r.PM.toFixed(1)}</td>
             </tr>
           ))}
         </tbody>
@@ -70,11 +76,19 @@ function SplitTable({ rows, showRecord }: { rows: SplitRow[]; showRecord?: boole
 
 export default function BasketballSplits({ splits }: { splits: BasketballSplitsData | undefined }) {
   const [oppOpen, setOppOpen] = useState(false);
-  if (!splits || (!splits.home_road?.length && !splits.result?.length && !splits.vs_opponent?.length)) return null;
+  if (!splits) return null;
+  const hasAny =
+    splits.home_road?.length ||
+    splits.result?.length ||
+    splits.pre_post_allstar?.length ||
+    splits.month?.length ||
+    splits.days_rest?.length ||
+    splits.vs_opponent?.length;
+  if (!hasAny) return null;
 
   return (
     <div className="space-y-6">
-      {(splits.home_road?.length || splits.result?.length) ? (
+      {(splits.home_road?.length || splits.result?.length || splits.pre_post_allstar?.length || splits.days_rest?.length) ? (
         <div className="grid gap-6 sm:grid-cols-2">
           {splits.home_road?.length ? (
             <div>
@@ -88,6 +102,25 @@ export default function BasketballSplits({ splits }: { splits: BasketballSplitsD
               <SplitTable rows={splits.result} />
             </div>
           ) : null}
+          {splits.pre_post_allstar?.length ? (
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-neutral-600 dark:text-neutral-300">전반기/후반기</h3>
+              <SplitTable rows={splits.pre_post_allstar} />
+            </div>
+          ) : null}
+          {splits.days_rest?.length ? (
+            <div>
+              <h3 className="mb-2 text-sm font-medium text-neutral-600 dark:text-neutral-300">휴식일별</h3>
+              <SplitTable rows={splits.days_rest} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {splits.month?.length ? (
+        <div>
+          <h3 className="mb-2 text-sm font-medium text-neutral-600 dark:text-neutral-300">월별</h3>
+          <SplitTable rows={splits.month} />
         </div>
       ) : null}
 

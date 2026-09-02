@@ -38,7 +38,7 @@ export default function TeamMemoEditor({
         onChange={(e) => setValue(e.target.value)}
         onBlur={save}
         placeholder="메모를 입력하세요... (중계 중 참고할 내용 등)"
-        rows={3}
+        rows={12}
         className="w-full resize-y rounded-md border border-amber-200 bg-white p-2.5 text-sm text-neutral-900 outline-none focus:border-amber-400 dark:border-amber-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-amber-600"
       />
       <div className="mt-1 h-4 text-right text-xs text-neutral-400 dark:text-neutral-500">

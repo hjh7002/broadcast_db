@@ -24,7 +24,7 @@ export default function TeamNoteEditor({
   const [value, setValue] = useState(initialNote);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [height, setHeight] = useState(128);
+  const [height, setHeight] = useState(320);
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const router = useRouter();
 

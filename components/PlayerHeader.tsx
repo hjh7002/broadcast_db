@@ -63,6 +63,7 @@ export default function PlayerHeader({
           <InfoItem label="소속팀" value={get("team_history") || get("club")} />
           <InfoItem label="계약" value={get("contract")} />
           <InfoItem label="신장" value={get("height_cm") ? `${get("height_cm")}cm` : ""} />
+          <InfoItem label="윙스팬" value={get("wingspan_cm") ? `${get("wingspan_cm")}cm` : ""} />
         </div>
         {awards.length > 0 && (
           <div className="mt-3">

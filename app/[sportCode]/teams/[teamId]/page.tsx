@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getSportByCode, getTeam, getRoster } from "@/lib/data";
-import type { Player } from "@/lib/supabase/types";
+import { getSportByCode, getTeam, getRoster, getStatFields } from "@/lib/data";
+import type { Player, SportStatField } from "@/lib/supabase/types";
 import { mlbTeamIdForName } from "@/lib/mlbTeams";
 import { formatUpdatedAt } from "@/lib/dataFreshness";
 import { getCoachingStaff, getInjuredList, type CoachEntry, type InjuredPlayer } from "@/lib/teamRoster";
 import BasketballRosterTable from "@/components/BasketballRosterTable";
 import BasketballSchedule, { type ScheduleGame } from "@/components/BasketballSchedule";
+import QuarterAnalysisTable, { type QuarterGame } from "@/components/QuarterAnalysisTable";
 import TeamMemoEditor from "@/components/TeamMemoEditor";
 import TeamNewsSection, { type TeamNewsItem } from "@/components/TeamNewsSection";
 import TeamRosterMoves, { type RosterMoves } from "@/components/TeamRosterMoves";
 import TeamSeasonTrend, { type SeasonRecord } from "@/components/TeamSeasonTrend";
 import TeamFranchiseHistory, { type FranchiseHistory } from "@/components/TeamFranchiseHistory";
 import TeamScheduleIntensity, { type ScheduleIntensity } from "@/components/TeamScheduleIntensity";
+import TeamCompetitionHistory, { type CompetitionRecord } from "@/components/TeamCompetitionHistory";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,12 @@ function isPitcher(player: Player): boolean {
 // 야구(MLB/KBO)는 투수/타자로 스탯 구조 자체가 갈리지만, 농구는 그렇지 않음 —
 // 스포츠 코드로 야구식 투수/타자 분리 테이블을 쓸지, 농구식 단일 테이블을 쓸지 결정.
 const BASEBALL_SPORT_CODES = new Set(["mlb", "kbo"]);
+
+// BasketballRosterTable's PTS/REB/AST columns are meaningful for basketball
+// (its default, kept for zero-risk backward compat) but not for other sports
+// that reuse the same generic single-table layout — those get their own
+// sport's stat_fields as columns instead.
+const BASKETBALL_SPORT_CODES = new Set(["bball_nt", "bball_nt_w", "nba"]);
 
 function BaseballRosterTable({ players, sportCode }: { players: Player[]; sportCode: string }) {
   return (
@@ -90,13 +98,22 @@ function RosterGroup({
   players,
   sportCode,
   finalRosterIds,
+  statFields,
 }: {
   players: Player[];
   sportCode: string;
   finalRosterIds?: string[];
+  statFields: SportStatField[];
 }) {
   if (!BASEBALL_SPORT_CODES.has(sportCode)) {
-    return <BasketballRosterTable players={players} sportCode={sportCode} finalRosterIds={finalRosterIds} />;
+    return (
+      <BasketballRosterTable
+        players={players}
+        sportCode={sportCode}
+        finalRosterIds={finalRosterIds}
+        statFields={BASKETBALL_SPORT_CODES.has(sportCode) ? undefined : statFields}
+      />
+    );
   }
 
   const pitchers = players.filter(isPitcher);
@@ -215,7 +232,7 @@ export default async function TeamPage({
   if (!sport) notFound();
   const team = await getTeam(teamId);
   if (!team || team.sport_id !== sport.id) notFound();
-  const roster = await getRoster(teamId);
+  const [roster, statFields] = await Promise.all([getRoster(teamId), getStatFields(sport.id)]);
 
   const mlbId = sport.code === "mlb" ? mlbTeamIdForName(team.name) : null;
   const [mlbCoachingStaff, injuredList] = mlbId
@@ -264,13 +281,14 @@ export default async function TeamPage({
               players={firstTeam}
               sportCode={sport.code}
               finalRosterIds={(team.extra as Record<string, unknown>).final_roster_ids as string[] | undefined}
+              statFields={statFields}
             />
           )}
 
           {secondTeam.length > 0 && (
             <>
               <h2 className="mt-8 mb-3 text-lg font-medium">2군 ({secondTeam.length})</h2>
-              <RosterGroup players={secondTeam} sportCode={sport.code} />
+              <RosterGroup players={secondTeam} sportCode={sport.code} statFields={statFields} />
             </>
           )}
         </>
@@ -278,9 +296,13 @@ export default async function TeamPage({
 
       <BasketballSchedule games={(team.extra as Record<string, unknown>).schedule as ScheduleGame[] | undefined} />
 
+      <QuarterAnalysisTable games={((team.extra as Record<string, unknown>).quarter_analysis as QuarterGame[] | undefined) ?? []} />
+
       <TeamSeasonTrend seasons={(team.extra as Record<string, unknown>).season_trend as SeasonRecord[] | undefined} />
 
       <TeamFranchiseHistory history={(team.extra as Record<string, unknown>).franchise_history as FranchiseHistory | undefined} />
+
+      <TeamCompetitionHistory history={(team.extra as Record<string, unknown>).competition_history as CompetitionRecord[] | undefined} />
 
       <TeamScheduleIntensity data={(team.extra as Record<string, unknown>).schedule_intensity as ScheduleIntensity | undefined} />
 

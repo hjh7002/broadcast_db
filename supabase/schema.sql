@@ -7,6 +7,7 @@ create table if not exists sports (
   id         uuid primary key default gen_random_uuid(),
   code       text unique not null,        -- 'mlb' | 'nba' | 'kbo'
   name       text not null,               -- 'MLB', 'NBA', 'KBO'
+  extra      jsonb not null default '{}', -- e.g. {"category": "배구"} to group related sports in the nav
   created_at timestamptz not null default now()
 );
 

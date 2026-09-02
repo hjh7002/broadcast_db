@@ -2,6 +2,7 @@ export type Sport = {
   id: string;
   code: string;
   name: string;
+  extra: Record<string, unknown>;
   created_at: string;
 };
 
