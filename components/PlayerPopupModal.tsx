@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import PlayerMemoEditor from "@/components/PlayerMemoEditor";
 
 type Streak = { games: number; ab: number; hits: number; hr: number; avg: string; ops?: string } & Record<string, unknown>;
@@ -66,8 +67,19 @@ export default function PlayerPopupModal({
 
   const showOnBase = onBaseStreak && (!hitStreak || onBaseStreak.games > hitStreak.games);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+  // Portaled to document.body — without this, the modal (including its own
+  // "선수 페이지 전체보기" <a>) would render as a DOM descendant of the roster row's
+  // <Link>, an invalid nested-anchor situation where clicks (even just closing the
+  // popup) bubble up and trigger that outer Link's navigation.
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }}
+    >
       <div
         className="max-h-[85vh] w-full max-w-sm overflow-y-auto rounded-lg bg-white p-5 shadow-xl dark:bg-neutral-900"
         onClick={(e) => e.stopPropagation()}
@@ -75,7 +87,11 @@ export default function PlayerPopupModal({
         <div className="mb-3 flex items-center justify-between">
           <p className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{playerName}</p>
           <button
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
             className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
             aria-label="닫기"
           >
@@ -138,6 +154,7 @@ export default function PlayerPopupModal({
 
         <PlayerMemoEditor playerId={playerId} initialMemo={initialMemo} />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
