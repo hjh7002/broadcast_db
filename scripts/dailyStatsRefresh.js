@@ -48,8 +48,30 @@ function deepMergeStats(oldVal, newVal) {
   return newVal;
 }
 
+// Running at 5am unattended, a laptop's Wi-Fi adapter is sometimes still waking up from
+// overnight power-saving even though the OS itself already fired the scheduled task —
+// that's the actual cause behind the repeated ENOTFOUND crashes seen in production
+// (they never reproduced when run interactively). Block here until a real request
+// succeeds, up to 5 minutes, before touching any of the 30 teams.
+async function waitForNetwork(maxWaitMs = 5 * 60 * 1000) {
+  const start = Date.now();
+  let attempt = 0;
+  while (true) {
+    try {
+      await supaGet(`/rest/v1/teams?select=id&limit=1`);
+      return;
+    } catch (e) {
+      attempt += 1;
+      if (Date.now() - start > maxWaitMs) throw new Error(`network never became ready after ${attempt} attempts: ${e.message}`);
+      console.log(`WAIT network not ready yet (attempt ${attempt}): ${e.message}`);
+      await sleep(10000);
+    }
+  }
+}
+
 async function main() {
-  const teams = await supaGet(`/rest/v1/teams?select=id,name,short_name&sport_id=eq.${MLB_SPORT_ID}`);
+  await waitForNetwork();
+  const teams = await withRetry(() => supaGet(`/rest/v1/teams?select=id,name,short_name&sport_id=eq.${MLB_SPORT_ID}`));
   let ok = 0, fail = 0, skip = 0;
 
   for (const team of teams) {
