@@ -1301,7 +1301,7 @@ export async function GET(request: Request) {
       series: seriesAndStreak?.series ?? null, streak: seriesAndStreak?.streak ?? null,
       onBaseStreak: seriesAndStreak?.onBaseStreak ?? null,
       pitchCategoryAvg, curated: batterCurated, vsOpponentTeam: batterVsOpponentTeam, handSplits: batterHandSplits,
-      opponentTeamName: koreanNameForMlbTeamId(pitcherTeamId), affiliations,
+      opponentTeamName: koreanNameForMlbTeamId(pitcherTeamId), teamName: koreanNameForMlbTeamId(batterTeamId), affiliations,
       notableFacts: [...batterNotableFacts, ...(batterBirthdayFact ? [batterBirthdayFact] : []), ...sharedConnectionFacts],
       runnerSplits: batterRunnerSplits, basesLoadedStat: batterBasesLoadedStat,
       homeAwaySplit: batterHomeAwaySplit, pinchHitSplit: batterPinchHitSplit,

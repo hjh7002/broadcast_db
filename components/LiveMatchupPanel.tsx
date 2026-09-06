@@ -78,6 +78,7 @@ type BatterInfo = {
   curated: CuratedContent;
   vsOpponentTeam: { career: BatterVsTeamLine; season: BatterVsTeamLine } | null;
   opponentTeamName: string;
+  teamName: string;
   affiliations: Affiliations;
   notableFacts: string[];
   handSplits: { label: string; avg: string; hr: number }[];
@@ -362,7 +363,7 @@ function BatterCard({ b }: { b: BatterInfo }) {
       {b.affiliations && (b.affiliations.pitcherPlayedForBatterTeam.length > 0 || b.affiliations.batterPlayedForPitcherTeam.length > 0 || b.affiliations.wereTeammates.length > 0) && (
         <div className="mb-2 space-y-1 rounded-lg bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200">
           {b.affiliations.pitcherPlayedForBatterTeam.length > 0 && (
-            <p>· 상대 투수가 {b.opponentTeamName}(타자 소속팀) 소속이었던 적 있음: {b.affiliations.pitcherPlayedForBatterTeam.join(", ")}년</p>
+            <p>· 상대 투수가 {b.teamName}(타자 소속팀) 소속이었던 적 있음: {b.affiliations.pitcherPlayedForBatterTeam.join(", ")}년</p>
           )}
           {b.affiliations.batterPlayedForPitcherTeam.length > 0 && (
             <p>· 이 타자가 상대 투수의 소속팀에서 뛴 적 있음: {b.affiliations.batterPlayedForPitcherTeam.join(", ")}년</p>
