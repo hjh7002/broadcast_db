@@ -6,6 +6,8 @@ import LiveMatchupPanel, { type PreviewRosterOption } from "@/components/LiveMat
 import type { LeaderBadge } from "@/lib/leaders";
 import { formatUpdatedAt } from "@/lib/dataFreshness";
 import BasketballBroadcastRoster from "@/components/BasketballBroadcastRoster";
+import PlayerHoverTooltip from "@/components/PlayerHoverTooltip";
+import PlayerNamePopupTrigger from "@/components/PlayerNamePopupTrigger";
 
 // MLB/KBO get the pitcher/batter lineup treatment below; every other sport
 // (NBA, 농구 국가대표, ...) gets a plain position-grouped roster instead —
@@ -72,12 +74,16 @@ function RosterList({
   battingOrderOf,
   showStreak,
   leaderBadges,
+  opponentPitcherId,
+  opponentMlbTeamId,
 }: {
   sportCode: string;
   players: Player[];
   battingOrderOf?: (player: Player) => number | null;
   showStreak?: boolean;
   leaderBadges?: Map<number, LeaderBadge[]>;
+  opponentPitcherId?: number | null;
+  opponentMlbTeamId?: number | null;
 }) {
   if (players.length === 0) return null;
   return (
@@ -96,7 +102,19 @@ function RosterList({
             >
               <span className="text-neutral-900 dark:text-neutral-100">
                 {order != null && <span className="mr-1.5 text-xs text-neutral-400 dark:text-neutral-500">{order}번</span>}
-                {p.name}
+                <PlayerHoverTooltip player={p}>
+                  <PlayerNamePopupTrigger
+                    playerId={p.id}
+                    playerName={p.name}
+                    sportCode={sportCode}
+                    personId={personId}
+                    opponentPitcherId={opponentPitcherId ?? null}
+                    opponentTeamId={opponentMlbTeamId ?? null}
+                    hitStreak={(p.stats as Record<string, unknown>)?.hitStreak as Record<string, unknown> | null}
+                    onBaseStreak={(p.stats as Record<string, unknown>)?.onBaseStreak as Record<string, unknown> | null}
+                    initialMemo={((p.bio as Record<string, unknown>)?.memo as string) ?? ""}
+                  />
+                </PlayerHoverTooltip>
                 {streak && <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">{streak}</span>}
                 {ranks?.map((r, i) => (
                   <span
@@ -241,6 +259,8 @@ function TeamColumn({
   standings,
   opponentCode,
   leaderBadges,
+  opponentPitcherId,
+  opponentMlbTeamId,
 }: {
   broadcastId?: string;
   side: "home" | "away";
@@ -254,6 +274,11 @@ function TeamColumn({
   standings?: StandingsEntry[];
   opponentCode?: string | null;
   leaderBadges?: Map<number, LeaderBadge[]>;
+  // For the player-name popup's "현재 투수 상대 전적" — the OTHER team's starting
+  // pitcher (this side's batters face them) and that other team's MLB numeric id
+  // (to find "이번 시리즈" games against them).
+  opponentPitcherId?: number | null;
+  opponentMlbTeamId?: number | null;
 }) {
   const firstTeam = roster.filter((p) => (p.bio as Record<string, unknown>).roster_level !== "2군");
   const isBaseball = BASEBALL_SPORT_CODES.has(sport.code);
@@ -263,6 +288,8 @@ function TeamColumn({
   // Streaks are pregame color only — once the game goes live, today's game itself
   // will start moving them, so the badge is dropped rather than show a stale number.
   const showPregameStreaks = gameState === "Preview";
+  const rawTeamMemo = (team.extra as Record<string, unknown>).memo;
+  const teamMemo = typeof rawTeamMemo === "string" && rawTeamMemo.length > 0 ? rawTeamMemo : null;
 
   // Baseball keeps a fixed-height card with a scrolling roster (rosters run
   // 20-40+ deep with bench/pitchers). Basketball rosters are ~12-24 players and
@@ -284,6 +311,12 @@ function TeamColumn({
         <p className="px-3 pb-2 text-center text-xs text-neutral-500 dark:text-neutral-400">
           {[teamRecord(team, standings), teamCoach(team) ? `감독 ${teamCoach(team)}` : null].filter(Boolean).join(" · ")}
         </p>
+      )}
+
+      {!isBaseball && teamMemo && (
+        <div className="mx-3 mb-2 max-h-56 overflow-y-auto rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs leading-relaxed whitespace-pre-wrap text-neutral-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-neutral-300">
+          {teamMemo}
+        </div>
       )}
 
       {/* 메모 영역: 야구는 카드 높이의 절반 이상(flex-[3]), 농구는 직접 드래그로 크기 조절 */}
@@ -309,13 +342,21 @@ function TeamColumn({
                     battingOrderOf={(p) => orderMap.get(p.id) ?? null}
                     showStreak={showPregameStreaks}
                     leaderBadges={leaderBadges}
+                    opponentPitcherId={opponentPitcherId}
+                    opponentMlbTeamId={opponentMlbTeamId}
                   />
                 </>
               )}
               {benchBatters.length > 0 && (
                 <>
                   <SectionHeader label={`벤치 타자 (${benchBatters.length})`} />
-                  <RosterList sportCode={sport.code} players={benchBatters} leaderBadges={leaderBadges} />
+                  <RosterList
+                    sportCode={sport.code}
+                    players={benchBatters}
+                    leaderBadges={leaderBadges}
+                    opponentPitcherId={opponentPitcherId}
+                    opponentMlbTeamId={opponentMlbTeamId}
+                  />
                 </>
               )}
               {startingPitcher && (
@@ -411,6 +452,8 @@ export default function BroadcastDisplay({
           standings={standings}
           opponentCode={teamCode(homeTeam)}
           leaderBadges={leaderBadges}
+          opponentPitcherId={lineupInfo?.home?.startingPitcherId}
+          opponentMlbTeamId={homeMlbId}
         />
         <div className="pt-6 text-xl font-bold text-neutral-300 dark:text-neutral-600">VS</div>
         <TeamColumn
@@ -426,6 +469,8 @@ export default function BroadcastDisplay({
           standings={standings}
           opponentCode={teamCode(awayTeam)}
           leaderBadges={leaderBadges}
+          opponentPitcherId={lineupInfo?.away?.startingPitcherId}
+          opponentMlbTeamId={awayMlbId}
         />
       </div>
 
